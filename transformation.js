@@ -37,6 +37,7 @@ function update(item, e) {
       else if (item.data.handleEdge.includes('Center')) { this.mod.action = 'move-edge'; }
       else {
         this.mod.action = 'move-corner';
+        this.mod.scalePivot = this.pivot;
       }
 
       this.mod.modifiers = {
@@ -56,14 +57,43 @@ function update(item, e) {
       // if (!mod.modifiers.shift && !mod.modifiers.alt)
       this._ghost.rotate(-this.boxRotation, this.pivot);
 
-      this._ghost.scale(this.mod.onePoint.divide(this._ghost.data.scale), this.pivot);
+      this._ghost.scale(this.mod.onePoint.divide(this._ghost.data.scale), this.mod.scalePivot);
       
-      var currentPointRelative = e.point.rotate(-this.boxRotation, this.pivot).subtract(this.pivot);
-      var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.pivot).subtract(this.pivot);
+      if (e.modifiers.alt) {
+        this.mod.scalePivot = this.pivot;
+      }
+      else {
+        let bounds = this._ghost.bounds;
+        switch (item.data.handleEdge) {
+          case 'topRight':
+            this.mod.scalePivot = bounds.bottomLeft;
+            break;
+          case 'topLeft':
+            this.mod.scalePivot = bounds.bottomRight;
+            break;
+          case 'bottomRight':
+            this.mod.scalePivot = bounds.topLeft;
+            break;
+          case 'bottomLeft':
+            this.mod.scalePivot = bounds.topRight;
+            break;
+        }
+      }
+      
+      var currentPointRelative = e.point.rotate(-this.boxRotation, this.mod.scalePivot).subtract(this.mod.scalePivot);
+      var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.mod.scalePivot).subtract(this.mod.scalePivot);
       var scaleFactor = currentPointRelative.divide(initialPointRelative);
+      if (!e.modifiers.shift) {
+        if (scaleFactor.x < scaleFactor.y) {
+          scaleFactor.x = Math.sign(scaleFactor.x) * scaleFactor.y;
+        }
+        else {
+          scaleFactor.y = Math.sign(scaleFactor.y) * scaleFactor.x;
+        }
+      }
       this._ghost.data.scale = scaleFactor;
 
-      this._ghost.scale(this._ghost.data.scale, this.pivot);
+      this._ghost.scale(this._ghost.data.scale, this.mod.scalePivot);
       this._ghost.rotate(this.boxRotation, this.pivot);
     }
   }
@@ -81,7 +111,9 @@ function finish(item) {
     this.rotateSelection(this._ghost.rotation);
   }
   else if (this.currentTransformation === 'scale') {
-    this.scaleSelection(this._ghost.data.scale);
+    if (this.mod.action === 'move-corner') {
+      this.scaleSelectionMod(this._ghost.data.scale, this.mod.scalePivot);
+    }
   }
 
   this._currentTransformation = null;

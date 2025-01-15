@@ -53,8 +53,7 @@ function update(item, e) {
       this._ghost.rotate(this.mod.rotateDelta, this.pivot);
       this.boxRotation = this.mod.initialBoxRotation + this.mod.rotateDelta;
     }
-    
-    if (this.mod.action === 'move-corner') {
+    else if (this.mod.action === 'move-corner') {
       // if (!mod.modifiers.shift && !mod.modifiers.alt)
       this._ghost.rotate(-this.boxRotation, this.pivot);
 
@@ -96,6 +95,9 @@ function update(item, e) {
 
       this._ghost.scale(this._ghost.data.scale, this.mod.scalePivot);
       this._ghost.rotate(this.boxRotation, this.pivot);
+    }
+    else {
+      
     }
   }
 }

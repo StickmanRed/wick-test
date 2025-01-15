@@ -134,13 +134,15 @@ paper.SelectionWidget.prototype.scaleSelectionMod = function (scale, pivot) {
   this.pivot = newPivot.rotate(this.boxRotation, this.pivot);
 }
 
-/* Duplicate the normal Wick cursor */
+/* Duplicate the normal Wick Cursor */
 const newCursor = new Wick.Tools.Cursor();
 newCursor.project = project;
 newCursor.name = 'newcursor';
 project._tools.newcursor = newCursor;
 
-/* This code was copied from Wick Editor. */
+/* Modify the Cursor logic
+ * This code-paragraph was copied from Wick Editor. */
+// https://github.com/Wicklets/wick-editor/blob/f34f0d9512d7165e74c1910ea1aba9173ab8dec2/engine/src/tools/Cursor.js#L133
 newCursor.onMouseDrag = function (e) {
   if (!e.modifiers) e.modifiers = {};
 
@@ -165,7 +167,6 @@ newCursor.onMouseDrag = function (e) {
     this.__isDragging = false;
   }
 }
-
 newCursor.onMouseUp = function (e) {
   if (!e.modifiers) e.modifiers = {};
 
@@ -204,8 +205,41 @@ newCursor.onMouseUp = function (e) {
     }
   }
 }
+// https://github.com/Wicklets/wick-editor/blob/f34f0d9512d7165e74c1910ea1aba9173ab8dec2/engine/src/base/Selection.js#L128
+Wick.Selection.prototype.select = function (object) {
+
+  // Activate the cursor tool when selection changes
+  if (this._locationOf(object) === 'Canvas') {
+    if (this.project.activeTool.name === 'newcursor') {
+      this.project.activeTool = this.project.tools.newcursor;
+    }
+    else {
+      this.project.activeTool = this.project.tools.cursor;
+    }
+    object.parentLayer && object.parentLayer.activate();
+  }
+
+  // Only allow selection of objects of in the same location
+  if (this._locationOf(object) !== this.location) {
+      this.clear();
+  }
+
+  // Add the object to the selection!
+  this._selectedObjectsUUIDs.push(object.uuid);
+
+  // Select in between frames (for shift+click selecting frames)
+  if (object instanceof Wick.Frame) {
+      this._selectInBetweenFrames(object);
+  }
+
+  this._resetPositioningValues();
+
+  // Make sure the view gets updated the next time its needed...
+  this.view.dirty = true;
+}
 
 /* Set up + activate newCursor */
+// Look into https://github.com/Wicklets/wick-editor/blob/f34f0d9512d7165e74c1910ea1aba9173ab8dec2/src/Editor/EditorCore.jsx#L41
 project._view._setupTools();
 project._activeTool = newCursor;
 newCursor.activate();

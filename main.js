@@ -1,4 +1,4 @@
-/* Inject modified transform methods */
+/* Create + inject modified transform functions */
 function start(item) {
   this._ghost = this._buildGhost();
   this._layer.addChild(this._ghost);
@@ -81,15 +81,15 @@ function update(item, e) {
         }
       }
       
-      var currentPointRelative = e.point.rotate(-this.boxRotation, this.mod.scalePivot).subtract(this.mod.scalePivot);
-      var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.mod.scalePivot).subtract(this.mod.scalePivot);
+      var currentPointRelative = e.point.rotate(-this.boxRotation, this.pivot).subtract(this.mod.scalePivot);
+      var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.pivot).subtract(this.mod.scalePivot);
       var scaleFactor = currentPointRelative.divide(initialPointRelative);
       if (!e.modifiers.shift) {
-        if (scaleFactor.x < scaleFactor.y) {
-          scaleFactor.x = Math.sign(scaleFactor.x) * scaleFactor.y;
+        if (Math.abs(scaleFactor.x) < Math.abs(scaleFactor.y)) {
+          scaleFactor.x = Math.sign(scaleFactor.x) * Math.abs(scaleFactor.y);
         }
         else {
-          scaleFactor.y = Math.sign(scaleFactor.y) * scaleFactor.x;
+          scaleFactor.y = Math.sign(scaleFactor.y) * Math.abs(scaleFactor.x);
         }
       }
       this._ghost.data.scale = scaleFactor;
@@ -129,6 +129,9 @@ paper.SelectionWidget.prototype.scaleSelectionMod = function (scale, pivot) {
     item.scale(scale, pivot);
     item.rotate(this.boxRotation, this.pivot);
   });
+  
+  var newPivot = pivot.add(this.pivot.subtract(pivot).multiply(scale));
+  this.pivot = newPivot.rotate(this.boxRotation, this.pivot);
 }
 
 /* Duplicate the normal Wick cursor */

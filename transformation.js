@@ -1,4 +1,4 @@
-function startTransformation(item) {
+function start(item) {
   this._ghost = this._buildGhost();
   this._layer.addChild(this._ghost);
 
@@ -17,7 +17,7 @@ function startTransformation(item) {
     needsInitiate: true
   };
 }
-function updateTransformation(item, e) {
+function update(item, e) {
   if (this.currentTransformation === 'translate') {
     this._ghost.position = this._ghost.position.add(e.delta);
   }
@@ -28,7 +28,7 @@ function updateTransformation(item, e) {
       if (this.currentTransformation === 'rotate') {
         this.mod.action = 'rotate';
       }
-      else if (item.data.handleEdge.contains('Center')) {
+      else if (item.data.handleEdge.includes('Center')) {
         this.mod.action = 'resize-edge';
       }
       else {
@@ -38,7 +38,7 @@ function updateTransformation(item, e) {
     console.log('hi');
   }
 }
-function finishTransformation(item) {
+function finish(item) {
   if(!this._currentTransformation) return;
 
   this._ghost.remove();

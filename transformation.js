@@ -23,29 +23,48 @@ function update(item, e) {
   }
   else {
     if (this.mod.needsInitiate) {
-      var lastPoint = e.point.subtract(e.delta);
-      this.mod.initialPoint = lastPoint;
+      this.mod.needsInitiate = false;
+      this.mod.initialPoint = e.point;
+      
       if (this.currentTransformation === 'rotate') {
         this.mod.action = 'rotate';
+        this.mod.rotateDelta = 0;
+        this.mod.initialAngle = this.mod.initialPoint.subtract(this.pivot).angle;
+        this.mod.initialBoxRotation = this.boxRotation ?? 0;
       }
-      else if (item.data.handleEdge.includes('Center')) {
-        this.mod.action = 'resize-edge';
-      }
-      else {
-        this.mod.action = 'resize-corner';
+      else if (item.data.handleEdge.includes('Center')) { this.mod.action = 'move-edge'; }
+      else { this.mod.action = 'move-corner'; }
+
+      this.mod.modifiers = {
+        shift: e.modifiers.shift,
+        alt: e.modifiers.alt
       }
     }
-    console.log('hi');
+    
+    if (this.mod.action === 'rotate') {
+      this._ghost.rotate(-this.mod.rotateDelta, this.pivot);
+      this.mod.rotateDelta = e.point.subtract(this.pivot).angle - this.mod.initialAngle
+      this._ghost.rotate(this.mod.rotateDelta, this.pivot);
+      this.boxRotation = this.mod.initialBoxRotation + this.mod.rotateDelta;
+    }
+    
+    /*if (this.mod.action === 'move-corner') {
+      // if (!mod.modifiers.shift && !mod.modifiers.alt)
+      
+    }*/
   }
 }
 function finish(item) {
-  if(!this._currentTransformation) return;
+  if (!this._currentTransformation) return;
 
   this._ghost.remove();
 
-  if(this.currentTransformation === 'translate') {
+  if (this.currentTransformation === 'translate') {
     var d = this._ghost.position.subtract(this._ghost.data.initialPosition);
     this.translateSelection(d);
+  }
+  else if (this.currentTransformation === 'rotate') {
+    this.rotateSelection(this._ghost.rotation);
   }
 
   this._currentTransformation = null;

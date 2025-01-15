@@ -24,6 +24,8 @@ function update(item, e) {
   else {
     if (this.mod.needsInitiate) {
       this.mod.needsInitiate = false;
+
+      this.mod.onePoint = new paper.Point(1,1);
       this.mod.initialPoint = e.point;
       
       if (this.currentTransformation === 'rotate') {
@@ -33,7 +35,9 @@ function update(item, e) {
         this.mod.initialBoxRotation = this.boxRotation ?? 0;
       }
       else if (item.data.handleEdge.includes('Center')) { this.mod.action = 'move-edge'; }
-      else { this.mod.action = 'move-corner'; }
+      else {
+        this.mod.action = 'move-corner';
+      }
 
       this.mod.modifiers = {
         shift: e.modifiers.shift,
@@ -48,10 +52,20 @@ function update(item, e) {
       this.boxRotation = this.mod.initialBoxRotation + this.mod.rotateDelta;
     }
     
-    /*if (this.mod.action === 'move-corner') {
+    if (this.mod.action === 'move-corner') {
       // if (!mod.modifiers.shift && !mod.modifiers.alt)
+      this._ghost.rotate(-this.boxRotation, this.pivot);
+
+      this._ghost.scale(this.mod.onePoint.divide(this._ghost.data.scale), this.pivot);
       
-    }*/
+      var currentPointRelative = e.point.rotate(-this.boxRotation, this.pivot).subtract(this.pivot);
+      var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.pivot).subtract(this.pivot);
+      var scaleFactor = currentPointRelative.divide(initialPointRelative);
+      this._ghost.data.scale = scaleFactor;
+
+      this._ghost.scale(this._ghost.data.scale, this.pivot);
+      this._ghost.rotate(this.boxRotation, this.pivot);
+    }
   }
 }
 function finish(item) {
@@ -65,6 +79,9 @@ function finish(item) {
   }
   else if (this.currentTransformation === 'rotate') {
     this.rotateSelection(this._ghost.rotation);
+  }
+  else if (this.currentTransformation === 'scale') {
+    this.scaleSelection(this._ghost.data.scale);
   }
 
   this._currentTransformation = null;

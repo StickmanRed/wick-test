@@ -35,7 +35,12 @@ function update(item, e) {
         this.mod.initialAngle = this.mod.initialPoint.subtract(this.pivot).angle;
         this.mod.initialBoxRotation = this.boxRotation ?? 0;
       }
-      else if (item.data.handleEdge.includes('Center')) { this.mod.action = 'move-edge'; }
+      else if (item.data.handleEdge.includes('Center')) {
+        this.mod.action = 'move-edge';
+        this.mod.scalePivot = this.pivot;
+        this.mod.scaleFactor = new paper.Point(1,1);
+        this.mod.shearOffset = new paper.Point(0,0);
+      }
       else {
         this.mod.action = 'move-corner';
         this.mod.scalePivot = this.pivot;
@@ -54,7 +59,6 @@ function update(item, e) {
       this.boxRotation = this.mod.initialBoxRotation + this.mod.rotateDelta;
     }
     else if (this.mod.action === 'move-corner') {
-      // if (!mod.modifiers.shift && !mod.modifiers.alt)
       this._ghost.rotate(-this.boxRotation, this.pivot);
 
       this._ghost.scale(this.mod.onePoint.divide(this._ghost.data.scale), this.mod.scalePivot);
@@ -97,7 +101,40 @@ function update(item, e) {
       this._ghost.rotate(this.boxRotation, this.pivot);
     }
     else {
+      this._ghost.rotate(-this.boxRotation, this.pivot);
+
+      this._ghost.scale(this.mod.onePoint.divide(this.mod.scaleFactor), this.mod.scalePivot).shear(this.mod.shearOffset.multiply(-1), this.mod.scalePivot);
       
+      if (e.modifiers.alt) {
+        this.mod.scalePivot = this.pivot;
+      }
+      else {
+        let bounds = this._ghost.bounds;
+        switch (item.data.handleEdge) {
+          case 'topCenter':
+          case 'rightCenter':
+            this.mod.scalePivot = bounds.bottomLeft;
+            break;
+          case 'bottomCenter':
+          case 'leftCenter':
+            this.mod.scalePivot = bounds.topRight;
+            break;
+        }
+      }
+
+      var currentPointRelative = e.point.rotate(-this.boxRotation, this.pivot).subtract(this.mod.scalePivot);
+      var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.pivot).subtract(this.mod.scalePivot);
+      var scaleFactor = currentPointRelative.divide(initialPointRelative);
+      if (item.data.handleEdge === 'topCenter' || item.data.handleEdge === 'bottomCenter') {
+        scaleFactor.x = 1;
+      }
+      else {
+        scaleFactor.y = 1;
+      }
+      this.mod.scaleFactor = scaleFactor;
+
+      this._ghost.scale(this.mod.scaleFactor, this.mod.scalePivot).shear(this.mod.shearOffset, this.mod.scalePivot);
+      this._ghost.rotate(this.boxRotation, this.pivot);
     }
   }
 }
@@ -117,6 +154,9 @@ function finish(item) {
     if (this.mod.action === 'move-corner') {
       this.scaleSelectionMod(this._ghost.data.scale, this.mod.scalePivot);
     }
+    else {
+      this.scaleShearSelectionMod(this.mod.scaleFactor, this.mod.shearOffset, this.mod.scalePivot);
+    }
   }
 
   this._currentTransformation = null;
@@ -133,5 +173,15 @@ paper.SelectionWidget.prototype.scaleSelectionMod = function (scale, pivot) {
   });
   
   var newPivot = pivot.add(this.pivot.subtract(pivot).multiply(scale));
+  this.pivot = newPivot.rotate(this.boxRotation, this.pivot);
+}
+paper.SelectionWidget.prototype.scaleShearSelectionMod = function (scale, shear, pivot) {
+  this._itemsInSelection.forEach(item => {
+    item.rotate(-this.boxRotation, this.pivot);
+    item.scale(scale, pivot).shear(shear, pivot);
+    item.rotate(this.boxRotation, this.pivot);
+  });
+  
+  var newPivot = this.pivot.subtract(pivot).transform(new paper.Matrix(scale.x, shear.y, shear.x, scale.y, 0, 0)).add(pivot);
   this.pivot = newPivot.rotate(this.boxRotation, this.pivot);
 }

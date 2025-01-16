@@ -128,7 +128,19 @@ function update(item, e) {
       var currentPointRelative = e.point.rotate(-this.boxRotation, this.pivot).subtract(this.mod.scalePivot);
       var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.pivot).subtract(this.mod.scalePivot);
       
+      if (!e.modifiers.command || (e.modifiers.command && e.modifiers.shift)) {
+        var scaleFactor = currentPointRelative.divide(initialPointRelative);
+        if (item.data.handleEdge === 'topCenter' || item.data.handleEdge === 'bottomCenter') {
+          scaleFactor.x = 1;
+        }
+        else {
+          scaleFactor.y = 1;
+        }
+
+        this.mod.transformMatrix.scale(scaleFactor)
+      }
       if (e.modifiers.command) {
+        // Shear is still a factor. Apply shear after scale to transform properly
         var shearOffset = currentPointRelative.subtract(initialPointRelative).divide(this._ghost.bounds.height, this._ghost.bounds.width);
         if (item.data.handleEdge === 'topCenter' || item.data.handleEdge === 'bottomCenter') {
           shearOffset.y = 0;
@@ -143,18 +155,7 @@ function update(item, e) {
           shearOffset = shearOffset.multiply(-1);
         };
 
-        this.mod.transformMatrix.shear(shearOffset);
-      }
-      if (!e.modifiers.command || (e.modifiers.command && e.modifiers.shift)) {
-        var scaleFactor = currentPointRelative.divide(initialPointRelative);
-        if (item.data.handleEdge === 'topCenter' || item.data.handleEdge === 'bottomCenter') {
-          scaleFactor.x = 1;
-        }
-        else {
-          scaleFactor.y = 1;
-        }
-
-        this.mod.transformMatrix.scale(scaleFactor)
+        this.mod.transformMatrix.shear(shearOffset.transform(this.mod.transformMatrix.inverted()));
       }
 
       transformOffset = this.mod.scalePivot;

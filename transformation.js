@@ -26,6 +26,7 @@ function update(item, e) {
     if (this.mod.needsInitiate) {
       this.mod.needsInitiate = false;
 
+      this.mod.zeroPoint = new paper.Point(0,0);
       this.mod.onePoint = new paper.Point(1,1);
       this.mod.initialPoint = e.point;
       
@@ -38,8 +39,8 @@ function update(item, e) {
       else if (item.data.handleEdge.includes('Center')) {
         this.mod.action = 'move-edge';
         this.mod.scalePivot = this.pivot;
-        this.mod.scaleFactor = new paper.Point(1,1);
-        this.mod.shearOffset = new paper.Point(0,0);
+
+        this.mod.transformMatrix = new paper.Matrix();
       }
       else {
         this.mod.action = 'move-corner';
@@ -60,7 +61,6 @@ function update(item, e) {
     }
     else if (this.mod.action === 'move-corner') {
       this._ghost.rotate(-this.boxRotation, this.pivot);
-
       this._ghost.scale(this.mod.onePoint.divide(this._ghost.data.scale), this.mod.scalePivot);
       
       if (e.modifiers.alt) {
@@ -103,7 +103,8 @@ function update(item, e) {
     else {
       this._ghost.rotate(-this.boxRotation, this.pivot);
 
-      this._ghost.scale(this.mod.onePoint.divide(this.mod.scaleFactor), this.mod.scalePivot).shear(this.mod.shearOffset.multiply(-1), this.mod.scalePivot);
+      var transformOffset = this.mod.scalePivot;
+      this._ghost.translate(transformOffset.multiply(-1)).transform(this.mod.transformMatrix.inverted()).translate(transformOffset);
       
       if (e.modifiers.alt) {
         this.mod.scalePivot = this.pivot;
@@ -122,8 +123,7 @@ function update(item, e) {
         }
       }
       
-      this.mod.scaleFactor = new paper.Point(1,1);
-      this.mod.shearOffset = new paper.Point(0,0);
+      this.mod.transformMatrix.reset();
 
       var currentPointRelative = e.point.rotate(-this.boxRotation, this.pivot).subtract(this.mod.scalePivot);
       var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.pivot).subtract(this.mod.scalePivot);
@@ -136,12 +136,16 @@ function update(item, e) {
         else {
           shearOffset.x = 0;
         }
+        if (e.modifiers.alt) {
+          shearOffset = shearOffset.multiply(2);
+        }
         if (item.data.handleEdge === 'topCenter' || item.data.handleEdge === 'leftCenter') {
           shearOffset = shearOffset.multiply(-1);
         };
-        this.mod.shearOffset = shearOffset;
+
+        this.mod.transformMatrix.shear(shearOffset);
       }
-      else {
+      if (!e.modifiers.command || (e.modifiers.command && e.modifiers.shift)) {
         var scaleFactor = currentPointRelative.divide(initialPointRelative);
         if (item.data.handleEdge === 'topCenter' || item.data.handleEdge === 'bottomCenter') {
           scaleFactor.x = 1;
@@ -149,10 +153,13 @@ function update(item, e) {
         else {
           scaleFactor.y = 1;
         }
-        this.mod.scaleFactor = scaleFactor;
+
+        this.mod.transformMatrix.scale(scaleFactor)
       }
 
-      this._ghost.scale(this.mod.scaleFactor, this.mod.scalePivot).shear(this.mod.shearOffset, this.mod.scalePivot);
+      transformOffset = this.mod.scalePivot;
+      this._ghost.translate(transformOffset.multiply(-1)).transform(this.mod.transformMatrix).translate(transformOffset);
+      
       this._ghost.rotate(this.boxRotation, this.pivot);
     }
   }
@@ -174,7 +181,7 @@ function finish(item) {
       this.scaleSelectionMod(this._ghost.data.scale, this.mod.scalePivot);
     }
     else {
-      this.scaleShearSelectionMod(this.mod.scaleFactor, this.mod.shearOffset, this.mod.scalePivot);
+      this.scaleShearSelectionMod(this.mod.transformMatrix, this.mod.scalePivot);
     }
   }
 
@@ -194,13 +201,18 @@ paper.SelectionWidget.prototype.scaleSelectionMod = function (scale, pivot) {
   var newPivot = pivot.add(this.pivot.subtract(pivot).multiply(scale));
   this.pivot = newPivot.rotate(this.boxRotation, this.pivot);
 }
-paper.SelectionWidget.prototype.scaleShearSelectionMod = function (scale, shear, pivot) {
+paper.SelectionWidget.prototype.scaleShearSelectionMod = function (matrix, pivot) {
   this._itemsInSelection.forEach(item => {
     item.rotate(-this.boxRotation, this.pivot);
-    item.scale(scale, pivot).shear(shear, pivot);
+    
+    var offset = pivot;
+    item.translate(offset.multiply(-1)).transform(matrix).translate(offset);
+    
     item.rotate(this.boxRotation, this.pivot);
   });
-  
-  var newPivot = this.pivot.subtract(pivot).transform(new paper.Matrix(scale.x, shear.y, shear.x, scale.y, 0, 0)).add(pivot);
+
+  // Note that the GUI won't show this pivot as the center because it doesn't account for skew.
+  // The pivot point after the skew will look a bit off.
+  var newPivot = pivot.add(this.pivot.subtract(pivot).transform(matrix));
   this.pivot = newPivot.rotate(this.boxRotation, this.pivot);
 }

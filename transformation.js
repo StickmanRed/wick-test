@@ -112,26 +112,41 @@ function update(item, e) {
         let bounds = this._ghost.bounds;
         switch (item.data.handleEdge) {
           case 'topCenter':
-          case 'rightCenter':
-            this.mod.scalePivot = bounds.bottomLeft;
+          case 'leftCenter':
+            this.mod.scalePivot = bounds.bottomRight;
             break;
           case 'bottomCenter':
-          case 'leftCenter':
-            this.mod.scalePivot = bounds.topRight;
+          case 'rightCenter':
+            this.mod.scalePivot = bounds.topLeft;
             break;
         }
       }
 
       var currentPointRelative = e.point.rotate(-this.boxRotation, this.pivot).subtract(this.mod.scalePivot);
       var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.pivot).subtract(this.mod.scalePivot);
-      var scaleFactor = currentPointRelative.divide(initialPointRelative);
-      if (item.data.handleEdge === 'topCenter' || item.data.handleEdge === 'bottomCenter') {
-        scaleFactor.x = 1;
+      if (e.modifiers.command) {
+        var shearOffset = currentPointRelative.subtract(initialPointRelative).divide(this._ghost.bounds.height, this._ghost.bounds.width);
+        if (item.data.handleEdge === 'topCenter' || item.data.handleEdge === 'bottomCenter') {
+          shearOffset.y = 0;
+        }
+        else {
+          shearOffset.x = 0;
+        }
+        if (item.data.handleEdge === 'topCenter' || item.data.handleEdge === 'leftCenter') {
+          shearOffset = shearOffset.multiply(-1);
+        };
+        this.mod.shearOffset = shearOffset;
       }
       else {
-        scaleFactor.y = 1;
+        var scaleFactor = currentPointRelative.divide(initialPointRelative);
+        if (item.data.handleEdge === 'topCenter' || item.data.handleEdge === 'bottomCenter') {
+          scaleFactor.x = 1;
+        }
+        else {
+          scaleFactor.y = 1;
+        }
+        this.mod.scaleFactor = scaleFactor;
       }
-      this.mod.scaleFactor = scaleFactor;
 
       this._ghost.scale(this.mod.scaleFactor, this.mod.scalePivot).shear(this.mod.shearOffset, this.mod.scalePivot);
       this._ghost.rotate(this.boxRotation, this.pivot);

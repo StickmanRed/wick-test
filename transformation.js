@@ -121,9 +121,13 @@ function update(item, e) {
             break;
         }
       }
+      
+      this.mod.scaleFactor = new paper.Point(1,1);
+      this.mod.shearOffset = new paper.Point(0,0);
 
       var currentPointRelative = e.point.rotate(-this.boxRotation, this.pivot).subtract(this.mod.scalePivot);
       var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.pivot).subtract(this.mod.scalePivot);
+      
       if (e.modifiers.command) {
         var shearOffset = currentPointRelative.subtract(initialPointRelative).divide(this._ghost.bounds.height, this._ghost.bounds.width);
         if (item.data.handleEdge === 'topCenter' || item.data.handleEdge === 'bottomCenter') {

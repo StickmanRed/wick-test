@@ -33,6 +33,12 @@ function update(item, e) {
         this.mod.action = 'move-corner';
       }
     }
+
+    this.mod.modifiers = {
+      skew: e.modifiers.command, // Skew when Ctrl/Cmd pressed
+      center: !e.modifiers.alt, // Always scale from center unless Alt pressed
+      freescale: !e.modifiers.shift // Never retain proportions unless Shift pressed
+    }
     
     if (this.mod.action === 'rotate') {
       this._ghost.rotate(-this.mod.rotateDelta, this.pivot);
@@ -44,7 +50,7 @@ function update(item, e) {
       this._ghost.rotate(-this.boxRotation, this.pivot);
       this._ghost.scale(this.mod.onePoint.divide(this._ghost.data.scale), this.mod.truePivot);
       
-      if (!e.modifiers.alt) {
+      if (this.mod.modifiers.center) {
         this.mod.truePivot = this.pivot;
       }
       else {
@@ -68,7 +74,7 @@ function update(item, e) {
       var currentPointRelative = e.point.rotate(-this.boxRotation, this.pivot).subtract(this.mod.truePivot);
       var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.pivot).subtract(this.mod.truePivot);
       var scaleFactor = currentPointRelative.divide(initialPointRelative);
-      if (e.modifiers.shift) {
+      if (!this.mod.modifiers.freescale) {
         if (Math.abs(scaleFactor.x) < Math.abs(scaleFactor.y)) {
           scaleFactor.x = Math.sign(scaleFactor.x) * Math.abs(scaleFactor.y);
         }
@@ -85,7 +91,7 @@ function update(item, e) {
       this._ghost.rotate(-this.boxRotation, this.pivot);
       this._ghost.translate(this.mod.truePivot.multiply(-1)).transform(this.mod.transformMatrix.inverted()).translate(this.mod.truePivot);
       
-      if (!e.modifiers.alt) {
+      if (this.mod.modifiers.center) {
         this.mod.truePivot = this.pivot;
       }
       else {
@@ -102,7 +108,7 @@ function update(item, e) {
       var currentPointRelative = e.point.rotate(-this.boxRotation, this.pivot);
       var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.pivot);
       
-      if (!e.modifiers.command || (e.modifiers.command && e.modifiers.shift)) {
+      if (!this.mod.modifiers.skew || (this.mod.modifiers.skew && e.modifiers.shift)) {
         var scaleFactor = currentPointRelative.subtract(this.mod.truePivot).divide(initialPointRelative.subtract(this.mod.truePivot));
         if (this.mod.vertical) {
           scaleFactor.x = 1;
@@ -113,11 +119,11 @@ function update(item, e) {
 
         this.mod.transformMatrix.scale(scaleFactor)
       }
-      if (e.modifiers.command) {
+      if (this.mod.modifiers.skew) {
         // Shear is still a factor. Apply shear after scale to transform properly
         var shearFactor = currentPointRelative.subtract(initialPointRelative).divide(this._ghost.bounds.height, this._ghost.bounds.width);
         if (this.mod.vertical) { shearFactor.y = 0; } else { shearFactor.x = 0; }
-        if (e.modifiers.alt) {
+        if (this.mod.modifiers.center) {
           shearFactor = shearFactor.multiply(2);
         }
         if (this.mod.topLeft) {
@@ -254,3 +260,4 @@ newCursor.onMouseUp = function (e) {
 }
 
 project._view._setupTools();
+project._activeTool = project.tools.cursor;

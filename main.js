@@ -1,30 +1,15 @@
 /* Create + inject modified transform functions */
-function start(item) {
-  this._ghost = this._buildGhost();
-  this._layer.addChild(this._ghost);
-
-  if(item.data.handleType === 'rotation') {
-    this.currentTransformation = 'rotate';
-  } else if (item.data.handleType === 'scale') {
-    this.currentTransformation = 'scale';
-  } else {
-    this.currentTransformation = 'translate';
-  }
-  
-  this._ghost.data.initialPosition = this._ghost.position;
-  this._ghost.data.scale = new paper.Point(1,1);
-
-  this.mod = {
-    needsInitiate: true
-  };
-}
 function update(item, e) {
   if (this.currentTransformation === 'translate') {
     this._ghost.position = this._ghost.position.add(e.delta);
   }
   else {
-    if (this.mod.needsInitiate) {
-      this.mod.needsInitiate = false;
+    // Wick. What is wrong with you. It would be nice if I could place the initiation in this function. But why in the world do I get a
+    // Uncaught TypeError: Cannot read properties of undefined (reading 'includes')
+    if (!this.mod?.initiated) {
+      this.mod = {
+        initiated: true
+      }
 
       this.mod.onePoint = new paper.Point(1,1);
       this.mod.initialPoint = e.point;
@@ -114,11 +99,11 @@ function update(item, e) {
       
       this.mod.transformMatrix.reset();
 
-      var currentPointRelative = e.point.rotate(-this.boxRotation, this.pivot).subtract(this.mod.truePivot);
-      var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.pivot).subtract(this.mod.truePivot);
+      var currentPointRelative = e.point.rotate(-this.boxRotation, this.pivot);
+      var initialPointRelative = this.mod.initialPoint.rotate(-this.boxRotation, this.pivot);
       
       if (!e.modifiers.command || (e.modifiers.command && e.modifiers.shift)) {
-        var scaleFactor = currentPointRelative.divide(initialPointRelative);
+        var scaleFactor = currentPointRelative.subtract(this.mod.truePivot).divide(initialPointRelative.subtract(this.mod.truePivot));
         if (this.mod.vertical) {
           scaleFactor.x = 1;
         }
@@ -130,21 +115,16 @@ function update(item, e) {
       }
       if (e.modifiers.command) {
         // Shear is still a factor. Apply shear after scale to transform properly
-        var shearOffset = currentPointRelative.subtract(initialPointRelative).divide(this._ghost.bounds.height, this._ghost.bounds.width);
-        if (this.mod.vertical) {
-          shearOffset.y = 0;
-        }
-        else {
-          shearOffset.x = 0;
-        }
+        var shearFactor = currentPointRelative.subtract(initialPointRelative).divide(this._ghost.bounds.height, this._ghost.bounds.width);
+        if (this.mod.vertical) { shearFactor.y = 0; } else { shearFactor.x = 0; }
         if (e.modifiers.alt) {
-          shearOffset = shearOffset.multiply(2);
+          shearFactor = shearFactor.multiply(2);
         }
         if (this.mod.topLeft) {
-          shearOffset = shearOffset.multiply(-1);
+          shearFactor = shearFactor.multiply(-1);
         };
 
-        this.mod.transformMatrix.shear(shearOffset.transform(this.mod.transformMatrix.inverted()));
+        this.mod.transformMatrix.shear(shearFactor.transform(this.mod.transformMatrix.inverted()));
       }
 
       this._ghost.translate(this.mod.truePivot.multiply(-1)).transform(this.mod.transformMatrix).translate(this.mod.truePivot);
@@ -174,9 +154,9 @@ function finish(item) {
   }
 
   this._currentTransformation = null;
+  this.mod.initiated = false;
 }
 
-paper.SelectionWidget.prototype.startTransformationMod = start;
 paper.SelectionWidget.prototype.updateTransformationMod = update;
 paper.SelectionWidget.prototype.finishTransformationMod = finish;
 paper.SelectionWidget.prototype.scaleSelectionMod = function (scale, pivot) {
@@ -192,10 +172,7 @@ paper.SelectionWidget.prototype.scaleSelectionMod = function (scale, pivot) {
 paper.SelectionWidget.prototype.transformSelectionMod = function (matrix, pivot) {
   this._itemsInSelection.forEach(item => {
     item.rotate(-this.boxRotation, this.pivot);
-    
-    var offset = pivot;
-    item.translate(offset.multiply(-1)).transform(matrix).translate(offset);
-    
+    item.translate(pivot.multiply(-1)).transform(matrix).translate(pivot);
     item.rotate(this.boxRotation, this.pivot);
   });
 
@@ -222,7 +199,7 @@ newCursor.onMouseDrag = function (e) {
   if (this.hitResult.item && this.hitResult.item.data.isSelectionBoxGUI) {
     // Update selection drag
     if (!this._widget.currentTransformation) {
-      this._widget.startTransformationMod(this.hitResult.item);
+      this._widget.startTransformation(this.hitResult.item);
     }
     this._widget.updateTransformationMod(this.hitResult.item, e);
   } else if (this.selectionBox.active) {
@@ -231,7 +208,7 @@ newCursor.onMouseDrag = function (e) {
   } else if (this.hitResult.item && this.hitResult.type === 'fill') {
     // We're dragging the selection itself, so move the whole item.
     if (!this._widget.currentTransformation) {
-      this._widget.startTransformationMod(this.hitResult.item);
+      this._widget.startTransformation(this.hitResult.item);
     }
     this._widget.updateTransformationMod(this.hitResult.item, e);
   } else {

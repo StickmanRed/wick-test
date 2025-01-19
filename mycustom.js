@@ -42,9 +42,13 @@ paper.SelectionWidget.prototype.updateTransformation = function (item, e) {
     
     if (this.mod.action === 'rotate') {
       this._ghost.rotate(-this.mod.rotateDelta, this.pivot);
-      this.mod.rotateDelta = e.point.subtract(this.pivot).angle - this.mod.initialAngle
+      
+      var rotateDelta = e.point.subtract(this.pivot).angle - this.mod.initialAngle;
+      if (!this.mod.modifiers.freescale) {rotateDelta = Math.round(Math.round(rotateDelta / 45) * 45);}
+      this.mod.rotateDelta = rotateDelta;
+      this.boxRotation = this.mod.initialBoxRotation + rotateDelta;
+      
       this._ghost.rotate(this.mod.rotateDelta, this.pivot);
-      this.boxRotation = this.mod.initialBoxRotation + this.mod.rotateDelta;
     }
     else if (this.mod.action === 'move-corner') {
       this._ghost.rotate(-this.boxRotation, this.pivot);

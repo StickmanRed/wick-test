@@ -1,5 +1,5 @@
 /* Create + inject modified transform functions */
-function update(item, e) {
+paper.SelectionWidget.prototype.updateTransformation = function (item, e) {
   if (this.currentTransformation === 'translate') {
     this._ghost.position = this._ghost.position.add(e.delta);
   }
@@ -138,7 +138,7 @@ function update(item, e) {
     }
   }
 }
-function finish(item) {
+paper.SelectionWidget.prototype.finishTransformation = function (item) {
   if (!this._currentTransformation) return;
 
   this._ghost.remove();
@@ -163,8 +163,6 @@ function finish(item) {
   this.mod.initiated = false;
 }
 
-paper.SelectionWidget.prototype.updateTransformationMod = update;
-paper.SelectionWidget.prototype.finishTransformationMod = finish;
 paper.SelectionWidget.prototype.scaleSelectionMod = function (scale, pivot) {
   this._itemsInSelection.forEach(item => {
     item.rotate(-this.boxRotation, this.pivot);
@@ -187,77 +185,3 @@ paper.SelectionWidget.prototype.transformSelectionMod = function (matrix, pivot)
   var newPivot = pivot.add(this.pivot.subtract(pivot).transform(matrix));
   this.pivot = newPivot.rotate(this.boxRotation, this.pivot);
 }
-
-/* Duplicate the normal Wick Cursor */
-const newCursor = new Wick.Tools.Cursor();
-newCursor.project = project;
-project._tools.cursor = newCursor;
-
-/* Modify the Cursor logic
- * This code-paragraph was copied from Wick Editor. */
-// https://github.com/Wicklets/wick-editor/blob/f34f0d9512d7165e74c1910ea1aba9173ab8dec2/engine/src/tools/Cursor.js#L133
-newCursor.onMouseDrag = function (e) {
-  if (!e.modifiers) e.modifiers = {};
-
-  this.__isDragging = true;
-
-  if (this.hitResult.item && this.hitResult.item.data.isSelectionBoxGUI) {
-    // Update selection drag
-    if (!this._widget.currentTransformation) {
-      this._widget.startTransformation(this.hitResult.item);
-    }
-    this._widget.updateTransformationMod(this.hitResult.item, e);
-  } else if (this.selectionBox.active) {
-    // Selection box is being used, update it with a new point
-    this.selectionBox.drag(e.point);
-  } else if (this.hitResult.item && this.hitResult.type === 'fill') {
-    // We're dragging the selection itself, so move the whole item.
-    if (!this._widget.currentTransformation) {
-      this._widget.startTransformation(this.hitResult.item);
-    }
-    this._widget.updateTransformationMod(this.hitResult.item, e);
-  } else {
-    this.__isDragging = false;
-  }
-}
-newCursor.onMouseUp = function (e) {
-  if (!e.modifiers) e.modifiers = {};
-
-  if (this.selectionBox.active) {
-    // Finish selection box and select objects touching box (or inside box, if alt is held)
-    this.selectionBox.mode = e.modifiers.alt ? 'contains' : 'intersects';
-    this.selectionBox.end(e.point);
-
-    if (!e.modifiers.shift) {
-      this._selection.clear();
-    }
-
-    let selectables = this.selectionBox.items.filter(item => {
-      return item.data.wickUUID;
-    })
-
-    this._selectItems(selectables);
-
-    // Only modify the canvas if you actually selected something.
-    if (this.selectionBox.items.length > 0) {
-      this.fireEvent({
-        eventName: 'canvasModified',
-        actionName: 'cursorSelectMultiple'
-      });
-    }
-
-  } else if (this._selection.numObjects > 0) {
-    if (this.__isDragging) {
-      this.__isDragging = false;
-      this.project.tryToAutoCreateTween();
-      this._widget.finishTransformationMod();
-      this.fireEvent({
-        eventName: 'canvasModified',
-        actionName: 'cursorDrag'
-      });
-    }
-  }
-}
-
-project._view._setupTools();
-project._activeTool = project.tools.cursor;

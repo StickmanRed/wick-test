@@ -42,7 +42,14 @@ paper.SelectionWidget.prototype.updateTransformation = function(item, e) {
     }
 
     if (this.mod.action === 'translate') {
-        this._ghost.position = this._ghost.position.add(e.delta);
+        var initialDelta = e.point.subtract(this.mod.initialPoint);
+        if (!this.mod.modifiers.freescale) {
+            var angle = initialDelta.angle;
+            angle = Math.round(Math.round(angle / 45) * 45) * Math.PI / 180;
+            var angleVector = new paper.Point(Math.cos(angle), Math.sin(angle));
+            initialDelta = initialDelta.project(angleVector);
+        }
+        this._ghost.position = this.mod.initialPosition.add(initialDelta);
     }
     else if (this.mod.action === 'rotate') {
         this._ghost.rotate(-this.mod.rotateDelta, this.pivot);

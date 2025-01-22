@@ -29,13 +29,28 @@ function coercePaths(path1, path2) {
  * return: A function with one goal - interpolate.
  */
 function createInterpolation(startPath, endPath) {
+    if (startPath.className !== endPath.className) {
+        // Can't interpolate different types. This should be handled earlier, though.
+        return;
+    }
+    
     // https://github.com/paperjs/paper.js/blob/develop/src/path/PathItem.js#L683-L692
     // usedPath clones endPath because the above raises an error if CompoundPaths don't have the same number of paths.
     var usedPath = endPath.clone({insert: false});
     usedPath.style = startPath.style;
 
-    // TODO: Handle CompoundPaths.
-    coercePaths(startPath, endPath);
+    if (startPath.className === 'Path') {
+        coercePaths(startPath, endPath);
+    }
+    else {
+        if (startPath.children.length !== endPath.children.length) {
+            // Can't coerce CompoundPaths with different number of sub-paths.
+            return;
+        }
+        startPath.children.forEach((startChildPath, index) => {
+            coercePaths(startChildPath, endPath.children[index]);
+        });
+    }
     
     return (factor) => {
         usedPath.interpolate(startPath, endPath, factor);
@@ -54,22 +69,43 @@ function shapeTween(layerIndex, start, end) {
     layer = project.activeTimeline.layers[layerIndex];
     startFrame = layer.getFrameAtPlayheadPosition(start)._children;
     endFrame = layer.getFrameAtPlayheadPosition(end)._children;
+    if (startFrame.length !== endFrame.length) {
+        // Can't shape tween frames with different amount of items.
+        return;
+    }
 
     // Set up the interpolation functions.
     var updates = [];
-    startFrame.forEach((startWickObj, index) => {
+    var exitedWithError = startFrame.some((startWickObj, index) => {
         // TODO: Check if startWickObj is the same type as endWickObj and they're not clips.
         var endWickObj = endFrame[index];
+        if (startWickObj._classname !== 'Path' || endWickObj._classname !== 'Path') {
+            // Can't shape tween clips. Report an error.
+            return true;
+        }
         
         var startPath = startWickObj._view._item;
         var endPath = endWickObj._view._item;
+        if (startPath.className !== endPath.className) {
+            // Can't shape tween Paths into CompoundPaths, or vice versa. Report an error.
+            return true;
+        }
 
         var startPathClone = startPath.clone();
         var endPathClone = endPath.clone();
-        updates.push(createInterpolation(startPathClone, endPathClone));
+        var update = createInterpolation(startPathClone, endPathClone);
+        if (!update) {
+            // Okay, something went wrong. Report an error.
+            return true;
+        }
+        updates.push(update);
         startPathClone.remove();
         endPathClone.remove();
-    });
+    })
+    if (exitedWithError) {
+        // Okay, something went wrong. Exit function.
+        return;
+    }
 
     for (var i = start + 1; i < end; i++) {
         // Add the paths to the frames and the frames to the layer.
@@ -84,4 +120,5 @@ function shapeTween(layerIndex, start, end) {
     }
 
     // Celebrate.
+    return true;
 }

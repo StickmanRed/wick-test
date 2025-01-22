@@ -23,18 +23,23 @@ function coercePaths(path1, path2) {
     }
 }
 /** Helper function to interpolate between two paths.
- * startPath: The starting path.
- * endPath: The end path.
+ * startPath: The starting path/compoundPath.
+ * endPath: The end path/compoundPath.
  * usedPath: The path to be used in the interpolation.
  * return: A function with one goal - interpolate.
  */
-function createInterpolation(startPath, endPath, usedPath) {
+function createInterpolation(startPath, endPath) {
+    // https://github.com/paperjs/paper.js/blob/develop/src/path/PathItem.js#L683-L692
+    // usedPath clones endPath because the above raises an error if CompoundPaths don't have the same number of paths.
+    var usedPath = endPath.clone({insert: false});
+    usedPath.style = startPath.style;
+
     // TODO: Handle CompoundPaths.
     coercePaths(startPath, endPath);
     
     return (factor) => {
         usedPath.interpolate(startPath, endPath, factor);
-        return usedPath.clone();
+        return usedPath;
     };
 }
 
@@ -59,11 +64,9 @@ function shapeTween(layerIndex, start, end) {
         var startPath = startWickObj._view._item;
         var endPath = endWickObj._view._item;
 
-        var inter = new paper.Path();
-        inter.style = startPath.style;
         var startPathClone = startPath.clone();
         var endPathClone = endPath.clone();
-        updates.push(createInterpolation(startPathClone, endPathClone, inter));
+        updates.push(createInterpolation(startPathClone, endPathClone));
         startPathClone.remove();
         endPathClone.remove();
     });

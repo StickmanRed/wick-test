@@ -29,7 +29,10 @@ function createInterpolation(startPath, endPath, usedPath) {
         divideInto(endPath, startLength - endLength + 1);
     }
 
-    return (factor) => usedPath.interpolate(startPath, endPath, factor);
+    return (factor) => {
+        usedPath.interpolate(startPath, endPath, factor);
+        return usedPath.clone();
+    };
 }
 
 /** Rudimentary shape tweening.
@@ -46,28 +49,30 @@ function shapeTween(layerIndex, start, end) {
     startFrame = layer.getFrameAtPlayheadPosition(start);
     endFrame = layer.getFrameAtPlayheadPosition(end);
 
-    // Get the first path of each frame.
-    // TODO: Shape tween all paths of frame.
-    startPath = startFrame._children[0]._view._item;
-    endPath = endFrame._children[0]._view._item;
+    // Set up the interpolation functions.
+    var updates = [];
+    startFrame._children.forEach((startWickPath, index) => {
+        var startPath = startWickPath._view._item;
+        var endPath = endFrame._children[index]._view._item;
 
-    // Set up the interpolation function.
-    inter = new paper.Path();
-    inter.style = startPath.style;
-    startPathClone = startPath.clone();
-    endPathClone = endPath.clone();
-    update = createInterpolation(startPathClone, endPathClone, inter);
-    startPathClone.remove();
-    endPathClone.remove();
+        var inter = new paper.Path();
+        inter.style = startPath.style;
+        var startPathClone = startPath.clone();
+        var endPathClone = endPath.clone();
+        updates.push(createInterpolation(startPathClone, endPathClone, inter));
+        startPathClone.remove();
+        endPathClone.remove();
+    });
 
-    for (let i = start + 1; i < end; i++) {
-        // Find the interpolation.
+    for (var i = start + 1; i < end; i++) {
+        // Add the paths to the frames and the frames to the layer.
         var progress = (i - start) / (end - start);
-        update(progress)
-        
-        // Add the frames.
+
         var newFrame = new Wick.Frame({start: i})
-        newFrame.addPath(new Wick.Path({path: inter.clone()}))
+        updates.forEach((update) => {
+            newFrame.addPath(new Wick.Path({path: update(progress)}));
+        });
+        
         layer.addFrame(newFrame)
     }
 

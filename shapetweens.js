@@ -1,21 +1,14 @@
-bounds = [1,15]
-
-theLayer = project.activeTimeline.layers[0]
-
-startFrame = theLayer.getFrameAtPlayheadPosition(bounds[0])
-endFrame = theLayer.getFrameAtPlayheadPosition(bounds[1])
-
-start = startFrame._children[0]._view._item;
-end = endFrame._children[0]._view._item;
-
-between = new paper.Path();
-between.style = {
-    strokeWidth: 5,
-    strokeColor: 'red'
-}
+/** Helper function to interpolate between two paths.
+ *
+ * startPath: The starting path.
+ * endPath: The end path.
+ * usedPath: The path to be used in the interpolation.
+ *
+ * returns: A function with one goal - interpolate.
+ */
 function createInterpolation(startPath, endPath, usedPath) {
-    // Path coercion.
-    // Paper.js won't interpolate if the two paths have a different amount of segments.
+    // Make the paths have an equal amount of segments.
+    // TODO: Make a better function to divide the curves. Right now, this just duplicates the end segment to make paper.js happy.
     while (startPath.segments.length < endPath.segments.length) {
         startPath.add(startPath.segments.at(-1));
     }
@@ -25,15 +18,45 @@ function createInterpolation(startPath, endPath, usedPath) {
     
     return (factor) => usedPath.interpolate(startPath, endPath, factor);
 }
-s = start.clone()
-e = end.clone()
-a = createInterpolation(s, e, between);
-s.remove()
-e.remove()
 
-for (let i = bounds[0]+1; i<bounds[1]; i++) {
-    a(i/(bounds[1]-bounds[0]+1))
-    newframe = new Wick.Frame({start: i})
-    newframe.addPath(new Wick.Path({path: between.clone()}))
-    theLayer.addFrame(newframe)
+/** Rudimentary shape tweening.
+ *
+ * layerIndex: The index of the layer in which the frames reside.
+ * start: The time of the starting frame.
+ * end: The time of the ending frame.
+ *
+ * return: Adds interpolation frames between the start and end,
+ */
+function shapeTween(layerIndex, start, end) {
+    // Retrieve the layer and frames we'll be working with.
+    layer = project.activeTimeline.layers[layerIndex];
+    startFrame = layer.getFrameAtPlayheadPosition(start);
+    endFrame = layer.getFrameAtPlayheadPosition(end);
+
+    // Get the first path of each frame.
+    // TODO: Shape tween all paths of frame.
+    startPath = startFrame._children[0]._view._item;
+    endPath = endFrame._children[0]._view._item;
+
+    // Set up the interpolation function.
+    inter = new paper.Path();
+    inter.style = startPath.style;
+    startPathClone = startPath.clone();
+    endPathClone = endPath.clone();
+    update = createInterpolation(startPathClone, endPathClone, inter);
+    startPathClone.remove();
+    endPathClone.remove();
+
+    for (let i = start + 1; i < end; i++) {
+        // Find the interpolation.
+        var progress = (i - start) / (end - start);
+        update(progress)
+        
+        // Add the frames.
+        var newFrame = new Wick.Frame({start: i})
+        newFrame.addPath(new Wick.Path({path: inter.clone()}))
+        layer.addFrame(newFrame)
+    }
+
+    // Celebrate.
 }

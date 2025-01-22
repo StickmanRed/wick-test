@@ -1,3 +1,14 @@
+/** Helper function to divide a path evenly.
+ * path: The path to divide.
+ * slices: How many sections to divide the path into.
+ *
+ * return: Modifies the input path.
+ */
+function divideInto(path, slices) {
+    for (let i = 1; i < slices; i++) {
+        path.divideAt(path.length * i / slices);
+    }
+}
 /** Helper function to interpolate between two paths.
  *
  * startPath: The starting path.
@@ -7,15 +18,17 @@
  * returns: A function with one goal - interpolate.
  */
 function createInterpolation(startPath, endPath, usedPath) {
-    // Make the paths have an equal amount of segments.
-    // TODO: Make a better function to divide the curves. Right now, this just duplicates the end segment to make paper.js happy.
-    while (startPath.segments.length < endPath.segments.length) {
-        startPath.add(startPath.segments.at(-1));
-    }
-    while (startPath.segments.length > endPath.segments.length) {
-        endPath.add(endPath.segments.at(-1));
-    }
+    var startLength = startPath.segments.length;
+    var endLength = endPath.segments.length;
     
+    // Make the paths have an equal amount of segments.
+    if (startLength < endLength) {
+        divideInto(startPath, endLength - startLength + 1);
+    }
+    else if (startLength > endLength) {
+        divideInto(endPath, startLength - endLength + 1);
+    }
+
     return (factor) => usedPath.interpolate(startPath, endPath, factor);
 }
 
@@ -25,7 +38,7 @@ function createInterpolation(startPath, endPath, usedPath) {
  * start: The time of the starting frame.
  * end: The time of the ending frame.
  *
- * return: Adds interpolation frames between the start and end,
+ * return: Adds interpolation frames between the start and end.
  */
 function shapeTween(layerIndex, start, end) {
     // Retrieve the layer and frames we'll be working with.

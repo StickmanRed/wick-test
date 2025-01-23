@@ -34,12 +34,9 @@ function createInterpolation(startPath, endPath) {
         return;
     }
     
-    // https://github.com/paperjs/paper.js/blob/develop/src/path/PathItem.js#L683-L692
-    // usedPath clones endPath because the above raises an error if CompoundPaths don't have the same number of paths.
-    var usedPath = endPath.clone({insert: false});
-    usedPath.style = startPath.style;
-
+    var usedPath;
     if (startPath.className === 'Path') {
+        usedPath = new paper.Path();
         coercePaths(startPath, endPath);
     }
     else {
@@ -50,7 +47,19 @@ function createInterpolation(startPath, endPath) {
         startPath.children.forEach((startChildPath, index) => {
             coercePaths(startChildPath, endPath.children[index]);
         });
+        
+        // https://github.com/paperjs/paper.js/blob/develop/src/path/PathItem.js#L683-L692
+        // This block of code has caused me much trouble.
+        var bugfix = []
+        for (let i = 0; i < endPath.children.length; i++) {
+            bugfix.push(new paper.Path());
+        }
+
+        usedPath = new paper.CompoundPath({
+            children: bugfix
+        });
     }
+    usedPath.style = startPath.style;
     
     return (factor) => {
         usedPath.interpolate(startPath, endPath, factor);
@@ -119,6 +128,8 @@ function shapeTween(layerIndex, start, end) {
         layer.addFrame(newFrame)
     }
 
+    // Notify the editor of the changes.
+    editor.projectDidChange();
     // Celebrate.
     return true;
 }

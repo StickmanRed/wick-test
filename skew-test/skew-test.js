@@ -1,3 +1,34 @@
+/* Modifying Wick.Transformation */
+Wick.Transformation = class {
+    constructor (args) {
+        if(!args) args = {};
+
+        this.x = args.x === undefined ? 0 : args.x;
+        this.y = args.y === undefined ? 0 : args.y;
+        this.scaleX = args.scaleX === undefined ? 1 : args.scaleX;
+        this.scaleY = args.scaleY === undefined ? 1 : args.scaleY;
+        this.skewX = args.skewX === undefined ? 0 : args.skewX;
+        this.skewY = args.skewY === undefined ? 0 : args.skewY;
+        this.rotation = args.rotation === undefined ? 0 : args.rotation;
+        this.opacity = args.opacity === undefined ? 1 : args.opacity;
+    }
+
+    get values () {
+        return {
+            x: this.x,
+            y: this.y,
+            scaleX: this.scaleX,
+            scaleY: this.scaleY,
+            skewX: this.skewX,
+            skewY: this.skewY,
+            rotation: this.rotation,
+            opacity: this.opacity,
+        }
+    }
+
+    copy () { return new Wick.Transformation(this.values); }
+}
+
 /* Modifying View.Clip.render */
 Wick.View.Clip.prototype.render = function render () {
     // Prevent an unselectable object from being rendered

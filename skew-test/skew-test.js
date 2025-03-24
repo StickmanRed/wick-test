@@ -66,9 +66,11 @@ Wick.View.Frame.prototype._applyDrawableChanges = function () {
 paper.SelectionWidget.prototype.translateSelection = function (delta) {
     this._itemsInSelection.forEach(item => {
         item.position = item.position.add(delta);
-        
-        item.data.modTransformData.x += delta.x;
-        item.data.modTransformData.y += delta.y;
+
+        if (item instanceof paper.Group) {
+            item.data.modTransformData.x += delta.x;
+            item.data.modTransformData.y += delta.y;
+        }
     });
     this.pivot = this.pivot.add(delta);
 }
@@ -82,8 +84,10 @@ paper.SelectionWidget.prototype.scaleSelection = function (scale) {
         item.scale(scale, this.pivot);
         item.rotate(this.boxRotation, this.pivot);
 
-        item.data.modTransformData.scaleX *= scale.x;
-        item.data.modTransformData.scaleY *= scale.y;
+        if (item instanceof paper.Group) {
+            item.data.modTransformData.scaleX *= scale.x;
+            item.data.modTransformData.scaleY *= scale.y;
+        }
     });
 }
 
@@ -94,6 +98,8 @@ paper.SelectionWidget.prototype.rotateSelection = function (angle) {
     this._itemsInSelection.forEach(item => {
         item.rotate(angle, this.pivot);
         
-        item.data.modTransformData.rotation += angle;
+        if (item instanceof paper.Group) {
+            item.data.modTransformData.rotation += angle;
+        }
     });
 }

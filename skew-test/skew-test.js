@@ -76,10 +76,11 @@ Wick.View.Frame.prototype._applyDrawableChanges = function () {
     this.model.drawable.filter(path=>{return path instanceof Wick.Path&&path.isDynamicText}).forEach(path=>{path.view.item.bringToFront()});var drawables=this.model.drawable.concat([]);drawables.forEach(drawable=>{this.model.removeClip(drawable)});this.objectsLayer.children.filter(child=>{return child.data.wickType!=='gui'}).forEach(child=>{if(child instanceof paper.Group||child instanceof Wick.Clip){this.model.addClip(drawables.find(g=>{return g.uuid===child.data.wickUUID}))}else{var originalWickPath=child.data.wickUUID?Wick.ObjectCache.getObjectByUUID(child.data.wickUUID):null;var pathJSON=Wick.View.Path.exportJSON(child);var wickPath=new Wick.Path({project:this.model.project,json:pathJSON});this.model.addPath(wickPath);wickPath.fontWeight=originalWickPath?originalWickPath.fontWeight:400;wickPath.fontStyle=originalWickPath?originalWickPath.fontStyle:'normal';wickPath.identifier=originalWickPath?originalWickPath.identifier:null;child.name=wickPath.uuid}});
     
     this.objectsLayer.children.filter(child => {
-            return child.data.wickType !== 'gui';
-        }).forEach(child => {
-            if (child instanceof paper.Group || child instanceof Wick.Clip) {
-                var wickClip = Wick.ObjectCache.getObjectByUUID(child.data.wickUUID);
+        return child.data.wickType !== 'gui';
+    }).forEach(child => {
+        if (child instanceof paper.Group || child instanceof Wick.Clip) {
+            var wickClip = Wick.ObjectCache.getObjectByUUID(child.data.wickUUID);
+            if (child.data.modTransformData) {
                 wickClip.transformation = new Wick.Transformation({
                     x: child.data.modTransformData.x,
                     y: child.data.modTransformData.y,
@@ -87,11 +88,14 @@ Wick.View.Frame.prototype._applyDrawableChanges = function () {
                     scaleY: child.data.modTransformData.scaleY,
                     rotation: child.data.modTransformData.rotation,
                     opacity: child.opacity
-
                 });
             }
-        });
-    }
+            else {
+                wickClip.transformation.opacity = child.opacity;
+            }
+        }
+    });
+}
 
 /* Modifying the selection functions */
 paper.SelectionWidget.prototype.translateSelection = function (delta) {

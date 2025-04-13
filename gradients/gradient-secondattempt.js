@@ -23,18 +23,22 @@ var path3 = new Path.Rectangle({
     size: [370, 260]
 });
 path3.fillColor = {
-    stops: [
-        ['yellow', 0],
-        ['purple', 0.5],
-        ['transparent', 1]
-    ],
+    gradient: {
+        stops: [
+            ['yellow', 0],
+            ['purple', 0.5],
+            ['transparent', 1]
+        ],
+        radial: true
+    },
     origin: path3.bounds.leftCenter,
     destination: path3.bounds.rightCenter
 };
+//path3.strokeWidth = 10;
 
 const ENDPOINT_RADIUS = 5;
 const ENDPOINT_COLOR = 'blue';
-var COLOR_STOP_RECT_RADIUS = 12;
+const COLOR_STOP_RECT_RADIUS = 12;
 
 var thiscolorStops = [];
 var thisendpoints = [
@@ -72,6 +76,7 @@ var thisendpointLine = new paper.Path.Line({
 
 var thistarget = null;
 var thisselectedObject = null;
+var thisisRadial = false;
 var thisselectedColorStop = null;
 var thisobjectNeedsUpdate = false;
 
@@ -178,6 +183,7 @@ function setupGUI() {
     
     // Extract gradient information from target object
     var color = thisselectedObject.fillColor;
+    
     var origin, destination, stops;
     if (color.gradient) {
         origin = color.origin;
@@ -185,12 +191,14 @@ function setupGUI() {
         stops = color.gradient.stops.map(gradientStop => {
             return [gradientStop.color, gradientStop.offset];
         });
+        thisisRadial = color.gradient.radial;
     }
     else {
         // Fill is a solid color, emulate gradient
         origin = thisselectedObject.bounds.leftCenter;
         destination = thisselectedObject.bounds.rightCenter;
         stops = [[color, 0], [color.clone(), 1]];
+        thisisRadial = false;
     }
     
     // Update the GUI paths to the target object
@@ -249,7 +257,7 @@ function updateTarget() {
     thisselectedObject.fillColor = {
         gradient: {
             stops: stops,
-            // radial: isRadial
+            radial: thisisRadial
         },
         origin: origin,
         destination: destination

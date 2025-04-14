@@ -101,10 +101,7 @@ function getTarget(e) {
         fill: true,
         stroke: true,
         segments: true,
-        tolerance: 3,
-        match: obj => {
-            return !obj.item.data.gradientIsEndpointLine;
-        }
+        tolerance: 3
     });
     return result;
 }
@@ -137,7 +134,54 @@ function onMouseDown(e) {
             // Do nothing I guess
         }
         else if (thistarget.data.gradientIsEndpointLine) {
+            // Interpolate a new color stop
+            var offset = findPointOffset(
+                thisendpoints[0].position,
+                thisendpoints[1].position,
+                e.point
+            );
+            var stops = thiscolorStops.map(stop => {
+                return [stop.data.gradientGetStopColor(), stop.data.gradientStopOffset];
+            }).sort((stop1, stop2) => {
+                return stop1[1] - stop2[1];
+            });
+            var nextStopIndex = stops.findIndex(stopCouplet => {
+                return stopCouplet[1] > offset;
+            });
             
+            var newColor;
+            if (nextStopIndex === -1) {
+                newColor = stops[stops.length - 1][0].clone();
+            }
+            else if (nextStopIndex === 0) {
+                newColor = stops[0][0].clone();
+            }
+            else {
+                var prevStop = stops[nextStopIndex - 1];
+                var nextStop = stops[nextStopIndex];
+                var percent = (offset - prevStop[1]) / (nextStop[1] - prevStop[1]);
+                
+                newColor = prevStop[0].add(
+                    nextStop[0].subtract(prevStop[0]).multiply(percent)
+                );
+                newColor.alpha =
+                    prevStop[0].alpha
+                    + (nextStop[0].alpha - prevStop[0].alpha) * percent;
+            }
+            
+            var newColorStop = createColorStop();
+                thiscolorStops.push(newColorStop);
+            
+            var [getPosition, angle] = findPositionAngle(
+                thisendpoints[0].position,
+                thisendpoints[1].position
+            );
+            newColorStop.data.gradientStopOffset = offset;
+            newColorStop.position = getPosition(offset);
+            newColorStop.rotation = angle;
+            newColorStop.data.gradientSetStopColor(newColor);
+            
+            newColorStop.addTo(project);
         }
     }
     else {
@@ -157,13 +201,7 @@ function onMouseDrag(e) {
             // Calculate the stop offset
             var origin = thisendpoints[0].position;
             var destination = thisendpoints[1].position;
-            var parallel = destination.subtract(origin);
-            
-            var offsetVector = e.point.subtract(origin);
-            offsetVector = offsetVector.rotate(-parallel.angle);
-            var offset = offsetVector.x / parallel.length;
-            if (offset < 0) offset = 0;
-            else if (offset > 1) offset = 1;
+            var offset = findPointOffset(origin, destination, e.point);
             
             // Update the stop
             var getPosition = findPositionAngle(origin, destination)[0];
@@ -196,7 +234,6 @@ function onKeyDown(e) {
     
     console.log(e.key);
     if ((e.key === 'backspace') || (e.key === 'delete')) {
-        console.log(thisselectedColorStop);
         if (thisselectedColorStop) {
             var index = thiscolorStops.indexOf(thisselectedColorStop);
             if (thiscolorStops.length <= 2) {
@@ -208,7 +245,6 @@ function onKeyDown(e) {
             }
             else {
                 thiscolorStops.splice(index, 1)[0].remove();
-                console.log(thiscolorStops.length, index);
                 if (index >= thiscolorStops.length) {
                     index = thiscolorStops.length - 1;
                 };
@@ -283,8 +319,8 @@ function setupGUI() {
     
     // Put back all the GUI paths
     thiscolorStops.forEach(stop => stop.addTo(project));
-    thisendpoints.forEach(endpoint => endpoint.addTo(project));
     thisendpointLine.addTo(project);
+    thisendpoints.forEach(endpoint => endpoint.addTo(project));
 }
 function updateGUI() {
     // Update the gradient line
@@ -415,4 +451,15 @@ function findPositionAngle(origin, destination) {
         return position;
     };
     return [getPosition, normal.angle + 90];
+}
+function findPointOffset(origin, destination, point) {
+    var parallel = destination.subtract(origin);
+    var offsetVector = point.subtract(origin);
+    offsetVector = offsetVector.rotate(-parallel.angle);
+    
+    var offset = offsetVector.x / parallel.length;
+    if (offset < 0) offset = 0;
+    else if (offset > 1) offset = 1;
+    
+    return offset;
 }

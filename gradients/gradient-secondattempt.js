@@ -34,7 +34,19 @@ path3.fillColor = {
     origin: path3.bounds.leftCenter,
     destination: path3.bounds.rightCenter
 };
-//path3.strokeWidth = 10;
+path3.strokeColor = {
+    gradient: {
+        stops: [
+            ['yellow', 0],
+            ['purple', 0.5],
+            ['transparent', 1]
+        ],
+        radial: true
+    },
+    origin: path3.bounds.leftCenter,
+    destination: path3.bounds.rightCenter
+};
+path3.strokeWidth = 10;
 
 const ENDPOINT_RADIUS = 5;
 const ENDPOINT_COLOR = 'blue';
@@ -70,13 +82,17 @@ var thisendpointLine = new paper.Path.Line({
     insert: false,
     data: {
         gradientIsGUI: true,
-        gradientIgnore: true
+        gradientIsEndpointLine: true
     }
 });
 
+var thishitResult = null;
 var thistarget = null;
+
 var thisselectedObject = null;
+var thisselectedIsStroke = null;
 var thisisRadial = false;
+
 var thisselectedColorStop = null;
 var thisobjectNeedsUpdate = false;
 
@@ -85,47 +101,50 @@ function getTarget(e) {
         fill: true,
         stroke: true,
         segments: true,
-        tolerance: settings.hitTolerance,
+        tolerance: 3,
         match: obj => {
-            return !obj.item.data.gradientIgnore;
+            return !obj.item.data.gradientIsEndpointLine;
         }
     });
-    if (result) result = result.item;
     return result;
 }
 let isGUI = path => path.data.gradientIsGUI;
 let isColorStop = path => path.data.gradientStopOffset;
 let isEndpoint = path => path.data.gradientEndpoint;
+let isEndpointLine = path => path.data.gradientIsEndpointLine;
 
 function onMouseDown(e) {
-    thistarget = getTarget(e);
+    thishitResult = getTarget(e);
     thisobjectNeedsUpdate = false;
     
     // Check what's clicked and do something about it
-    if (!thistarget) {
+    if (!thishitResult) {
         // Nothing was clicked, so deselect everything
+        thistarget = null;
         destroyGUI();
         return null;
     }
+    thistarget = thishitResult.item;
     
     if (thistarget.data.gradientIsGUI) {
         if (thistarget.parent.data.gradientStopOffset !== undefined) {
             // Select the color stop
             thistarget = thistarget.parent;
             thisselectedColorStop = thistarget;
+            updateSelectedColorStops();
         }
         else if (thistarget.data.gradientEndpoint) {
             // Do nothing I guess
+        }
+        else if (thistarget.data.gradientIsEndpointLine) {
+            
         }
     }
     else {
         // Set up the gradient GUI
         thisselectedObject = thistarget;
+        thisselectedIsStroke = (thishitResult.type === 'stroke');
         setupGUI();
-    }
-    
-    if (thistarget.data.gradientStopOffset === undefined) {
-        thisselectedColorStop = null;
     }
 }
 function onMouseDrag(e) {
@@ -170,6 +189,40 @@ function onMouseUp(e) {
     }
 }
 
+var lastKeyPressed = null;
+function onKeyDown(e) {
+    if (e.key === lastKeyPressed) return null;
+    lastKeyPressed = e.key;
+    
+    console.log(e.key);
+    if ((e.key === 'backspace') || (e.key === 'delete')) {
+        console.log(thisselectedColorStop);
+        if (thisselectedColorStop) {
+            var index = thiscolorStops.indexOf(thisselectedColorStop);
+            if (thiscolorStops.length <= 2) {
+                // We can't only have one stop, so just set the current stop to
+                // the color of the other stop
+                var otherColor = thiscolorStops[1 - index].data.gradientGetStopColor();
+                thisselectedColorStop.data.gradientSetStopColor(otherColor.clone());
+                thisselectedColorStop = thiscolorStops[1 - index];
+            }
+            else {
+                thiscolorStops.splice(index, 1)[0].remove();
+                console.log(thiscolorStops.length, index);
+                if (index >= thiscolorStops.length) {
+                    index = thiscolorStops.length - 1;
+                };
+                thisselectedColorStop = thiscolorStops[index];
+            }
+            updateTarget();
+            updateSelectedColorStops();
+        }
+    }
+}
+function onKeyUp(e) {
+    lastKeyPressed = null;
+}
+
 // When an object is first clicked, the GUI paths get set up using information
 // from the object.
 // After that, the object gets updated using information from the GUI paths.
@@ -182,7 +235,9 @@ function setupGUI() {
     });
     
     // Extract gradient information from target object
-    var color = thisselectedObject.fillColor;
+    var color;
+    if (thisselectedIsStroke) color = thisselectedObject.strokeColor;
+    else color = thisselectedObject.fillColor;
     
     var origin, destination, stops;
     if (color.gradient) {
@@ -190,6 +245,8 @@ function setupGUI() {
         destination = color.destination;
         stops = color.gradient.stops.map(gradientStop => {
             return [gradientStop.color, gradientStop.offset];
+        }).sort((stop1, stop2) => {
+            return stop1[1] - stop2[1];
         });
         thisisRadial = color.gradient.radial;
     }
@@ -214,8 +271,10 @@ function setupGUI() {
         
         // Set the color of the stop
         colorStop.data.gradientSetStopColor(stopCouplet[0]);
+        colorStop.data.gradientSetSelected(idx === 0);
     });
     thiscolorStops.length = stops.length;
+    thisselectedColorStop = thiscolorStops[0];
     
     thisendpoints[0].position = origin;
     thisendpoints[1].position = destination;
@@ -242,6 +301,11 @@ function updateGUI() {
         colorPath.rotation = angle;
     });
 }
+function updateSelectedColorStops() {
+    thiscolorStops.forEach(colorStop => {
+        colorStop.data.gradientSetSelected(colorStop === thisselectedColorStop);
+    });
+}
 function updateTarget() {
     // Get origin, destination, and stops from GUI paths
     var origin = thisendpointLine.segments[0].point;
@@ -254,7 +318,7 @@ function updateTarget() {
     });
     
     // Set the target fillColor to that
-    thisselectedObject.fillColor = {
+    color = {
         gradient: {
             stops: stops,
             radial: thisisRadial
@@ -262,6 +326,9 @@ function updateTarget() {
         origin: origin,
         destination: destination
     };
+    
+    if (thisselectedIsStroke) thisselectedObject.strokeColor = color;
+    else thisselectedObject.fillColor = color;
     
     thistargetNeedsUpdate = false;
 }
@@ -282,10 +349,13 @@ function destroyGUI() {
 function createColorStop() {
     var radius = COLOR_STOP_RECT_RADIUS;
     var height = radius/5;
+    var borderColor = '#cccccc';
+    var selectedBorderColor = 'blue';
     var stopFillPath = new paper.Path.Rectangle({
         center: [0, -(radius+height)],
         size: [2*radius-4, 2*radius-4],
         fillColor: 'red',
+        strokeWidth: 0,
         data: {
             gradientIsGUI: true
         }
@@ -296,7 +366,6 @@ function createColorStop() {
                 center: [0, -(radius+height)],
                 size: [2*radius, 2*radius],
                 fillColor: '#ffffff',
-                strokeColor: '#cccccc',
                 strokeWidth: 2,
                 data: {
                     gradientIsGUI: true
@@ -308,7 +377,6 @@ function createColorStop() {
                 ],
                 closed: true,
                 fillColor: '#ffffff',
-                strokeColor: '#cccccc',
                 strokeWidth: 2,
                 data: {
                     gradientIsGUI: true
@@ -316,6 +384,7 @@ function createColorStop() {
             }),
             stopFillPath
         ],
+        strokeColor: borderColor,
         pivot: [0, 0],
         applyMatrix: false,
         data: {
@@ -328,7 +397,11 @@ function createColorStop() {
     };
     stopGroup.data.gradientGetStopColor = () => {
         return stopFillPath.fillColor;
-    }
+    };
+    stopGroup.data.gradientSetSelected = selected => {
+        if (selected) stopGroup.strokeColor = selectedBorderColor;
+        else stopGroup.strokeColor = borderColor;
+    };
     
     return stopGroup;
 }

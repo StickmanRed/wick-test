@@ -103,85 +103,38 @@ function getTarget(e) {
         segments: true,
         tolerance: 3
     });
+    if (!result) result = new paper.HitResult();
     return result;
 }
+/*
 let isGUI = path => path.data.gradientIsGUI;
 let isColorStop = path => path.data.gradientStopOffset;
 let isEndpoint = path => path.data.gradientEndpoint;
 let isEndpointLine = path => path.data.gradientIsEndpointLine;
+*/
 
 function onMouseDown(e) {
     thishitResult = getTarget(e);
+    thistarget = thishitResult.item;
     thisobjectNeedsUpdate = false;
     
-    // Check what's clicked and do something about it
-    if (!thishitResult) {
+    if (!thistarget) {
         // Nothing was clicked, so deselect everything
-        thistarget = null;
         destroyGUI();
         return null;
     }
-    thistarget = thishitResult.item;
     
     if (thistarget.data.gradientIsGUI) {
         if (thistarget.parent.data.gradientStopOffset !== undefined) {
-            // Select the color stop
+            // Clicked a color stop, select it
             thistarget = thistarget.parent;
             thisselectedColorStop = thistarget;
             updateSelectedColorStops();
         }
-        else if (thistarget.data.gradientEndpoint) {
-            // Do nothing I guess
-        }
         else if (thistarget.data.gradientIsEndpointLine) {
-            // Interpolate a new color stop
-            var offset = findPointOffset(
-                thisendpoints[0].position,
-                thisendpoints[1].position,
-                e.point
-            );
-            var stops = thiscolorStops.map(stop => {
-                return [stop.data.gradientGetStopColor(), stop.data.gradientStopOffset];
-            }).sort((stop1, stop2) => {
-                return stop1[1] - stop2[1];
-            });
-            var nextStopIndex = stops.findIndex(stopCouplet => {
-                return stopCouplet[1] > offset;
-            });
-            
-            var newColor;
-            if (nextStopIndex === -1) {
-                newColor = stops[stops.length - 1][0].clone();
-            }
-            else if (nextStopIndex === 0) {
-                newColor = stops[0][0].clone();
-            }
-            else {
-                var prevStop = stops[nextStopIndex - 1];
-                var nextStop = stops[nextStopIndex];
-                var percent = (offset - prevStop[1]) / (nextStop[1] - prevStop[1]);
-                
-                newColor = prevStop[0].add(
-                    nextStop[0].subtract(prevStop[0]).multiply(percent)
-                );
-                newColor.alpha =
-                    prevStop[0].alpha
-                    + (nextStop[0].alpha - prevStop[0].alpha) * percent;
-            }
-            
-            var newColorStop = createColorStop();
-                thiscolorStops.push(newColorStop);
-            
-            var [getPosition, angle] = findPositionAngle(
-                thisendpoints[0].position,
-                thisendpoints[1].position
-            );
-            newColorStop.data.gradientStopOffset = offset;
-            newColorStop.position = getPosition(offset);
-            newColorStop.rotation = angle;
-            newColorStop.data.gradientSetStopColor(newColor);
-            
-            newColorStop.addTo(project);
+            // Clicked above the gradient line, create a new stop
+            interpolateColorStop(e.point);
+            updateTarget();
         }
     }
     else {
@@ -294,7 +247,7 @@ function setupGUI() {
         thisisRadial = false;
     }
     
-    // Update the GUI paths to the target object
+    // Update the GUI paths using the target object's gradient
     var [getPosition, angle] = findPositionAngle(origin, destination);
     stops.forEach((stopCouplet, idx) => {
         if (idx >= thiscolorStops.length) {
@@ -440,6 +393,58 @@ function createColorStop() {
     };
     
     return stopGroup;
+}
+function interpolateColorStop(point) {
+    var offset = findPointOffset(
+        thisendpoints[0].position,
+        thisendpoints[1].position,
+        point
+    );
+    
+    // Find the two stops user clicked between
+    var stops = thiscolorStops.map(stop => {
+        return [stop.data.gradientGetStopColor(), stop.data.gradientStopOffset];
+    }).sort((stop1, stop2) => {
+        return stop1[1] - stop2[1];
+    });
+    var nextStopIndex = stops.findIndex(stopCouplet => {
+        return stopCouplet[1] > offset;
+    });
+    // Find the color of the new stop
+    var newColor;
+    if (nextStopIndex === -1) {
+        newColor = stops[stops.length - 1][0].clone();
+    }
+    else if (nextStopIndex === 0) {
+        newColor = stops[0][0].clone();
+    }
+    else {
+        var prevStop = stops[nextStopIndex - 1];
+        var nextStop = stops[nextStopIndex];
+        var percent = (offset - prevStop[1]) / (nextStop[1] - prevStop[1]);
+        
+        newColor = prevStop[0].add(
+            nextStop[0].subtract(prevStop[0]).multiply(percent)
+        );
+        newColor.alpha =
+            prevStop[0].alpha
+            + (nextStop[0].alpha - prevStop[0].alpha) * percent;
+    }
+    
+    // Set up the new color stop
+    var newColorStop = createColorStop();
+    thiscolorStops.splice(nextStopIndex, 0, newColorStop);
+    
+    var [getPosition, angle] = findPositionAngle(
+        thisendpoints[0].position,
+        thisendpoints[1].position
+    );
+    newColorStop.data.gradientStopOffset = offset;
+    newColorStop.position = getPosition(offset);
+    newColorStop.rotation = angle;
+    newColorStop.data.gradientSetStopColor(newColor);
+    
+    newColorStop.addTo(project);
 }
 function findPositionAngle(origin, destination) {
     var directionVector = destination.subtract(origin);

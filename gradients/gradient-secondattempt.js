@@ -58,9 +58,9 @@ const COLOR_STOP_RECT_RADIUS = 12;
  * this.endpointLine: The paper.Path object of the line between the two endpoints.
  * 
  * this.hitResult: paper.HitResult object for the latest onMouseDown event.
- * this.target: this.hitResult.item
+ * this.hitObject: this.hitResult.item
  *
- * this.selectedObject: The paper.Path/paper.CompoundPath whose gradient is being edited.
+ * this.target: The paper.Path/paper.CompoundPath whose gradient is being edited.
  * this.selectedIsStroke: Equals true if the stroke of the object is being edited, instead of the fill.
  * this.isRadial: Equals true if the gradient of the object is radial.
  *
@@ -103,9 +103,9 @@ var thisendpointLine = new paper.Path.Line({
 });
 
 var thishitResult = new paper.HitResult();
-var thistarget = null;
+var thishitObject = null;
 
-var thisselectedObject = null;
+var thistarget = null;
 var thisselectedIsStroke = null;
 var thisisRadial = false;
 
@@ -131,23 +131,23 @@ let isEndpointLine = path => path.data.gradientIsEndpointLine;
 
 function onMouseDown(e) {
     thishitResult = getTarget(e);
-    thistarget = thishitResult.item;
+    thishitObject = thishitResult.item;
     thistargetNeedsUpdate = false;
     
-    if (!thistarget) {
+    if (!thishitObject) {
         // Nothing was clicked, so deselect everything
         destroyGUI();
         return null;
     }
     
-    if (thistarget.data.gradientIsGUI) {
-        if (thistarget.parent.data.gradientStopOffset !== undefined) {
+    if (thishitObject.data.gradientIsGUI) {
+        if (thishitObject.parent.data.gradientStopOffset !== undefined) {
             // Clicked a color stop, select it
-            thistarget = thistarget.parent;
-            thisselectedColorStop = thistarget;
+            thishitObject = thishitObject.parent;
+            thisselectedColorStop = thishitObject;
             updateSelectedColorStops();
         }
-        else if (thistarget.data.gradientIsEndpointLine) {
+        else if (thishitObject.data.gradientIsEndpointLine) {
             // Clicked above the gradient line, create a new stop
             interpolateColorStop(e.point);
             updateTarget();
@@ -155,18 +155,18 @@ function onMouseDown(e) {
     }
     else {
         // Set up the gradient GUI
-        thisselectedObject = thistarget;
+        thistarget = thishitObject;
         thisselectedIsStroke = (thishitResult.type === 'stroke');
         setupGUI();
     }
 }
 function onMouseDrag(e) {
-    if (!thistarget) return null;
+    if (!thishitObject) return null;
     
     // If the GUI is dragged, move it
-    if (thistarget.data.gradientIsGUI) {
+    if (thishitObject.data.gradientIsGUI) {
         thistargetNeedsUpdate = true;
-        if (thistarget.data.gradientStopOffset !== undefined) {
+        if (thishitObject.data.gradientStopOffset !== undefined) {
             // Calculate the stop offset
             var origin = thisendpoints[0].position;
             var destination = thisendpoints[1].position;
@@ -174,12 +174,12 @@ function onMouseDrag(e) {
             
             // Update the stop
             var getPosition = findPositionAngle(origin, destination)[0];
-            thistarget.position = getPosition(offset);
-            thistarget.data.gradientStopOffset = offset;
+            thishitObject.position = getPosition(offset);
+            thishitObject.data.gradientStopOffset = offset;
         }
-        else if (thistarget.data.gradientEndpoint) {
+        else if (thishitObject.data.gradientEndpoint) {
             // Move the endpoint
-            thistarget.position = e.point;
+            thishitObject.position = e.point;
             
             // Update the rest of the GUI
             updateGUI();
@@ -188,10 +188,10 @@ function onMouseDrag(e) {
     }
 }
 function onMouseUp(e) {
-    if (!thistarget) return null;
+    if (!thishitObject) return null;
     
     // If the GUI was dragged, push the values to the target object
-    if (thistarget.data.gradientIsGUI && thistargetNeedsUpdate) {
+    if (thishitObject.data.gradientIsGUI && thistargetNeedsUpdate) {
         updateTarget();
         thistargetNeedsUpdate = false;
     }
@@ -241,8 +241,8 @@ function setupGUI() {
     
     // Extract gradient information from target object
     var color;
-    if (thisselectedIsStroke) color = thisselectedObject.strokeColor;
-    else color = thisselectedObject.fillColor;
+    if (thisselectedIsStroke) color = thistarget.strokeColor;
+    else color = thistarget.fillColor;
     
     var origin, destination, stops;
     if (color.gradient) {
@@ -257,8 +257,8 @@ function setupGUI() {
     }
     else {
         // Fill is a solid color, emulate gradient
-        origin = thisselectedObject.bounds.leftCenter;
-        destination = thisselectedObject.bounds.rightCenter;
+        origin = thistarget.bounds.leftCenter;
+        destination = thistarget.bounds.rightCenter;
         stops = [[color, 0], [color.clone(), 1]];
         thisisRadial = false;
     }
@@ -332,8 +332,8 @@ function updateTarget() {
         destination: destination
     };
     
-    if (thisselectedIsStroke) thisselectedObject.strokeColor = color;
-    else thisselectedObject.fillColor = color;
+    if (thisselectedIsStroke) thistarget.strokeColor = color;
+    else thistarget.fillColor = color;
 }
 function destroyGUI() {
     // Remove all the GUI paths from the canvas
@@ -345,7 +345,7 @@ function destroyGUI() {
     });
     thisendpointLine.remove();
     
-    thisselectedObject = null;
+    thistarget = null;
     thisselectedColorStop = null;
 }
 

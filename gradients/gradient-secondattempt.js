@@ -51,6 +51,7 @@ path3.strokeWidth = 10;
 const ENDPOINT_RADIUS = 5;
 const ENDPOINT_COLOR = 'blue';
 const COLOR_STOP_RECT_RADIUS = 12;
+const ENDPOINT_LINE_STOP_DISTANCE = 5;
 
 /* 
  * this.colorStops: List containing paper.Group objects representing the color stops.
@@ -140,6 +141,12 @@ function onMouseDown(e) {
         return null;
     }
     
+    // Selection priority:
+    // Color stops
+    // Endpoint rotation
+    // Endpoint selection
+    // Color stop creation
+    // Target paths
     if (thishitObject.data.gradientIsGUI) {
         if (thishitObject.parent.data.gradientStopOffset !== undefined) {
             // Clicked a color stop, select it
@@ -154,7 +161,7 @@ function onMouseDown(e) {
         }
     }
     else {
-        // Set up the gradient GUI
+        // Clicked a path, select it
         thistarget = thishitObject;
         thisselectedIsStroke = (thishitResult.type === 'stroke');
         setupGUI();
@@ -466,7 +473,7 @@ function findPositionAngle(origin, destination) {
     
     var getPosition = offset => {
         var position = origin.add(directionVector.multiply(offset));
-        position = position.add(normal.multiply(10));
+        position = position.add(normal.multiply(ENDPOINT_LINE_STOP_DISTANCE));
         return position;
     };
     return [getPosition, normal.angle + 90];

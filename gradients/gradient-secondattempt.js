@@ -51,8 +51,8 @@ path3.strokeWidth = 10;
 const ENDPOINT_RADIUS = 5;
 const ENDPOINT_COLOR = 'blue';
 const COLOR_STOP_RECT_RADIUS = 12;
-const COLOR_STOP_CREATE_DISTANCE = 20; // Should be (distance of stop to line) + (height of color stop)
 const ENDPOINT_LINE_STOP_DISTANCE = 5;
+const COLOR_STOP_CREATE_DISTANCE = ENDPOINT_LINE_STOP_DISTANCE + 2.2 * COLOR_STOP_RECT_RADIUS;
 
 /* 
  * this.colorStops: List containing paper.Group objects representing the color stops.
@@ -103,6 +103,7 @@ var thisendpointLine = new paper.Path.Line({
         gradientIsEndpointLine: true
     }
 });
+var thiscolorStopHover = createColorStop({gradientIsHover: true}, true);
 
 var thishitResult = new paper.HitResult();
 var thishitObject = null;
@@ -119,7 +120,10 @@ function getTarget(e) {
         fill: true,
         stroke: true,
         segments: true,
-        tolerance: 3
+        tolerance: 3,
+        match: (result => {
+            return !result.item.data.gradientIsHover
+        })
     });
     if (!result) result = new paper.HitResult();
     return result;
@@ -130,6 +134,38 @@ let isColorStop = path => path.data.gradientStopOffset;
 let isEndpoint = path => path.data.gradientEndpoint;
 let isEndpointLine = path => path.data.gradientIsEndpointLine;
 */
+
+function onMouseMove(e) {
+    var hitPath = getTarget(e).item;
+    if (hitPath && hitPath.parent.data.gradientStopOffset !== undefined) hitPath = hitPath.parent;
+    
+    var distance = findPointLineDistance(
+        thisendpoints[0].position,
+        thisendpoints[1].position,
+        e.point
+    );
+    if ((0 <= distance && distance <= COLOR_STOP_CREATE_DISTANCE)
+        && (!hitPath || hitPath.data.gradientStopOffset === undefined)) {
+        // The cursor is above the endpoint line and not touching any of the color stops
+        var { color, offset } = interpolateColor(e.point);
+        thiscolorStopHover.data.gradientSetStopColor(color);
+        var [getPosition, angle] = findPositionAngle(
+            thisendpoints[0].position,
+            thisendpoints[1].position
+        );
+        thiscolorStopHover.position = getPosition(offset);
+        thiscolorStopHover.rotation = angle;
+        if (!thiscolorStopHover.parent) {
+            thiscolorStopHover.addTo(paper.project);
+        }
+    }
+    else {
+        if (thiscolorStopHover.parent) {
+            thiscolorStopHover.remove();
+        }
+    }
+    
+}
 
 function onMouseDown(e) {
     thishitResult = getTarget(e);
@@ -149,7 +185,10 @@ function onMouseDown(e) {
     // Color stop creation
     // Target paths
     if (thishitObject.data.gradientIsGUI) {
-        if (thishitObject.parent.data.gradientStopOffset !== undefined) {
+        if (
+            thishitObject.parent.data.gradientStopOffset !== undefined
+            && !thishitObject.parent.data.gradientIsHover
+        ) {
             // Clicked a color stop, select it
             thishitObject = thishitObject.parent;
             thisselectedColorStop = thishitObject;
@@ -185,6 +224,8 @@ function onMouseDown(e) {
     }
 }
 function onMouseDrag(e) {
+    if (thiscolorStopHover.parent) thiscolorStopHover.remove();
+    
     if (!thishitObject) return null;
     
     // If the GUI is dragged, move it
@@ -374,7 +415,9 @@ function destroyGUI() {
     thisselectedColorStop = null;
 }
 
-function createColorStop() {
+function createColorStop(data, hover) {
+    if (!data) data = {};
+    
     var radius = COLOR_STOP_RECT_RADIUS;
     var height = radius/5;
     var borderColor = '#cccccc';
@@ -385,7 +428,8 @@ function createColorStop() {
         fillColor: 'red',
         strokeWidth: 0,
         data: {
-            gradientIsGUI: true
+            gradientIsGUI: true,
+            ...data
         }
     });
     var stopGroup = new paper.Group({
@@ -396,10 +440,11 @@ function createColorStop() {
                 fillColor: '#ffffff',
                 strokeWidth: 2,
                 data: {
-                    gradientIsGUI: true
+                    gradientIsGUI: true,
+                    ...data
                 }
             }),
-            new paper.Path({
+            ... (!hover) ? [new paper.Path({
                 segments: [
                     [-height, -height], [0,0], [height, -height]
                 ],
@@ -407,16 +452,18 @@ function createColorStop() {
                 fillColor: '#ffffff',
                 strokeWidth: 2,
                 data: {
-                    gradientIsGUI: true
+                    gradientIsGUI: true,
+                    ...data
                 }
-            }),
+            })] : [],
             stopFillPath
         ],
         strokeColor: borderColor,
         pivot: [0, 0],
         applyMatrix: false,
         data: {
-            gradientIsGUI: true
+            gradientIsGUI: true,
+            ...data
         }
     });
     
@@ -434,6 +481,25 @@ function createColorStop() {
     return stopGroup;
 }
 function interpolateColorStop(point) {
+    var { color, offset, index } = interpolateColor(point);
+    
+    // Set up the new color stop
+    var newColorStop = createColorStop();
+    var [getPosition, angle] = findPositionAngle(
+        thisendpoints[0].position,
+        thisendpoints[1].position
+    );
+    newColorStop.data.gradientStopOffset = offset;
+    newColorStop.position = getPosition(offset);
+    newColorStop.rotation = angle;
+    newColorStop.data.gradientSetStopColor(color);
+    
+    return {
+        stop: newColorStop,
+        index: index
+    };
+}
+function interpolateColor(point) {
     var offset = findPointOffset(
         thisendpoints[0].position,
         thisendpoints[1].position,
@@ -470,21 +536,11 @@ function interpolateColorStop(point) {
             + (nextStop[0].alpha - prevStop[0].alpha) * percent;
     }
     
-    // Set up the new color stop
-    var newColorStop = createColorStop();
-    var [getPosition, angle] = findPositionAngle(
-        thisendpoints[0].position,
-        thisendpoints[1].position
-    );
-    newColorStop.data.gradientStopOffset = offset;
-    newColorStop.position = getPosition(offset);
-    newColorStop.rotation = angle;
-    newColorStop.data.gradientSetStopColor(newColor);
-    
     return {
-        stop: newColorStop,
+        color: newColor,
+        offset: offset,
         index: nextStopIndex
-    };
+    }
 }
 function findPositionAngle(origin, destination) {
     var directionVector = destination.subtract(origin);

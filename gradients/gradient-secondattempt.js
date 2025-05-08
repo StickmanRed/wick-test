@@ -49,7 +49,7 @@ path3.strokeColor = {
 path3.strokeWidth = 10;
 
 const ENDPOINT_RADIUS = 5;
-const OUTLINE_COLOR = 'blue';
+const OUTLINE_COLOR = '#0c8ce9';
 const COLOR_STOP_RECT_RADIUS = 12;
 const ENDPOINT_LINE_STOP_DISTANCE = 5;
 const COLOR_STOP_CREATE_DISTANCE = ENDPOINT_LINE_STOP_DISTANCE + 2.2 * COLOR_STOP_RECT_RADIUS;
@@ -241,7 +241,7 @@ function onMouseDown(e) {
     // Endpoint rotation
     // Color stop creation
     // Target paths
-    if (thishitObject.data.gradientIsGUI) {
+    if (thistarget && thishitObject.data.gradientIsGUI) {
         if (
             thishitObject.parent.data.gradientStopOffset !== undefined
             && !thishitObject.parent.data.gradientIsHover
@@ -259,7 +259,7 @@ function onMouseDown(e) {
             thisendpoints[1].position,
             e.point
         );
-        if (0 <= distance && distance <= COLOR_STOP_CREATE_DISTANCE) {
+        if (thistarget && 0 <= distance && distance <= COLOR_STOP_CREATE_DISTANCE) {
             // Clicked above the gradient line, create a new stop
             var {stop, index} = interpolateColorStop(e.point);
             thiscolorStops.splice(index, 0, stop);
@@ -484,7 +484,7 @@ function createColorStop(data, hover) {
     var radius = COLOR_STOP_RECT_RADIUS;
     var height = radius/5;
     var borderColor = '#cccccc';
-    var selectedBorderColor = 'blue';
+    var selectedBorderColor = OUTLINE_COLOR;
     var stopFillPath = new paper.Path.Rectangle({
         center: [0, -(radius+height)],
         size: [2*radius-4, 2*radius-4],

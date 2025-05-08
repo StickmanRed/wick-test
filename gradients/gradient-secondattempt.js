@@ -51,6 +51,7 @@ path3.strokeWidth = 10;
 const ENDPOINT_RADIUS = 5;
 const ENDPOINT_COLOR = 'blue';
 const COLOR_STOP_RECT_RADIUS = 12;
+const COLOR_STOP_CREATE_DISTANCE = 20; // Should be (distance of stop to line) + (height of color stop)
 const ENDPOINT_LINE_STOP_DISTANCE = 5;
 
 /* 
@@ -143,8 +144,8 @@ function onMouseDown(e) {
     
     // Selection priority:
     // Color stops
+    // Endpoints
     // Endpoint rotation
-    // Endpoint selection
     // Color stop creation
     // Target paths
     if (thishitObject.data.gradientIsGUI) {
@@ -154,17 +155,33 @@ function onMouseDown(e) {
             thisselectedColorStop = thishitObject;
             updateSelectedColorStops();
         }
-        else if (thishitObject.data.gradientIsEndpointLine) {
-            // Clicked above the gradient line, create a new stop
-            interpolateColorStop(e.point);
-            updateTarget();
-        }
     }
     else {
-        // Clicked a path, select it
-        thistarget = thishitObject;
-        thisselectedIsStroke = (thishitResult.type === 'stroke');
-        setupGUI();
+        // Check if clicked above the gradient line
+        var distance = findPointLineDistance(
+            thisendpoints[0].position,
+            thisendpoints[1].position,
+            e.point
+        );
+        if (0 <= distance && distance <= COLOR_STOP_CREATE_DISTANCE) {
+            // Clicked above the gradient line, create a new stop
+            var {stop, index} = interpolateColorStop(e.point);
+            thiscolorStops.splice(index, 0, stop);
+            stop.addTo(project);
+            
+            // Then select the new stop
+            thishitObject = stop;
+            thisselectedColorStop = thishitObject;
+            updateSelectedColorStops();
+            
+            updateTarget();
+        }
+        else {
+            // Clicked a path, select it
+            thistarget = thishitObject;
+            thisselectedIsStroke = (thishitResult.type === 'stroke');
+            setupGUI();
+        }
     }
 }
 function onMouseDrag(e) {
@@ -217,15 +234,16 @@ function onKeyDown(e) {
                 // Paper.js won't accept only one stop, so just set both stops to the same color
                 var otherColor = thiscolorStops[1 - index].data.gradientGetStopColor();
                 thisselectedColorStop.data.gradientSetStopColor(otherColor.clone());
-                thisselectedColorStop = thiscolorStops[1 - index];
+                //thisselectedColorStop = thiscolorStops[1 - index];
             }
             else {
                 thiscolorStops.splice(index, 1)[0].remove();
                 if (index >= thiscolorStops.length) {
                     index = thiscolorStops.length - 1;
                 };
-                thisselectedColorStop = thiscolorStops[index];
+                //thisselectedColorStop = thiscolorStops[index];
             }
+            thisselectedColorStop = null;
             updateTarget();
             updateSelectedColorStops();
         }
@@ -454,8 +472,6 @@ function interpolateColorStop(point) {
     
     // Set up the new color stop
     var newColorStop = createColorStop();
-    thiscolorStops.splice(nextStopIndex, 0, newColorStop);
-    
     var [getPosition, angle] = findPositionAngle(
         thisendpoints[0].position,
         thisendpoints[1].position
@@ -465,7 +481,10 @@ function interpolateColorStop(point) {
     newColorStop.rotation = angle;
     newColorStop.data.gradientSetStopColor(newColor);
     
-    newColorStop.addTo(project);
+    return {
+        stop: newColorStop,
+        index: nextStopIndex
+    };
 }
 function findPositionAngle(origin, destination) {
     var directionVector = destination.subtract(origin);
@@ -488,4 +507,11 @@ function findPointOffset(origin, destination, point) {
     else if (offset > 1) offset = 1;
     
     return offset;
+}
+function findPointLineDistance(origin, destination, point) {
+    var parallel = destination.subtract(origin);
+    var offsetVector = point.subtract(origin);
+    offsetVector = offsetVector.rotate(-parallel.angle);
+    
+    return -offsetVector.y;
 }

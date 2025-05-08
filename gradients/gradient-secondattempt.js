@@ -49,10 +49,11 @@ path3.strokeColor = {
 path3.strokeWidth = 10;
 
 const ENDPOINT_RADIUS = 5;
-const ENDPOINT_COLOR = 'blue';
+const OUTLINE_COLOR = 'blue';
 const COLOR_STOP_RECT_RADIUS = 12;
 const ENDPOINT_LINE_STOP_DISTANCE = 5;
 const COLOR_STOP_CREATE_DISTANCE = ENDPOINT_LINE_STOP_DISTANCE + 2.2 * COLOR_STOP_RECT_RADIUS;
+const OFFSET_HOVER_DISTANCE = 60;
 
 /* 
  * this.colorStops: List containing paper.Group objects representing the color stops.
@@ -75,7 +76,7 @@ var thisendpoints = [
     new paper.Path.Circle({
         center: [0,0],
         radius: ENDPOINT_RADIUS,
-        fillColor: ENDPOINT_COLOR,
+        fillColor: OUTLINE_COLOR,
         insert: false,
         data: {
             gradientIsGUI: true,
@@ -85,7 +86,7 @@ var thisendpoints = [
     new paper.Path.Circle({
         center: [0,0],
         radius: ENDPOINT_RADIUS,
-        fillColor: ENDPOINT_COLOR,
+        fillColor: OUTLINE_COLOR,
         insert: false,
         data: {
             gradientIsGUI: true,
@@ -96,7 +97,7 @@ var thisendpoints = [
 var thisendpointLine = new paper.Path.Line({
     from: [0,0],
     to: [0,0],
-    strokeColor: ENDPOINT_COLOR,
+    strokeColor: OUTLINE_COLOR,
     insert: false,
     data: {
         gradientIsGUI: true,
@@ -104,6 +105,45 @@ var thisendpointLine = new paper.Path.Line({
     }
 });
 var thiscolorStopHover = createColorStop({gradientIsHover: true}, true);
+var thistextHover = (() => {
+    var text = new paper.PointText({
+        justification: 'center',
+        fillColor: 'white',
+        data: {
+            gradientIsHover: true
+        }
+    });
+    text.position = [0, 0];
+    var back = new paper.Path();
+    var textHover = new paper.Group({
+        children: [back, text],
+        applyMatrix: false,
+        data: {
+            gradientIsHover: true,
+            gradientSetText: textContent => {
+                const TEXT_HOVER_RECT_MARGIN = 4;
+                text.content = textContent;
+                text.position = [0, 0];
+                var newBack = new paper.Path.Rectangle({
+                    center: [0, 0],
+                    size: [
+                        text.bounds.width + 2 * TEXT_HOVER_RECT_MARGIN,
+                        text.bounds.height + 2 * TEXT_HOVER_RECT_MARGIN
+                    ],
+                    radius: 2,
+                    fillColor: OUTLINE_COLOR,
+                    data: {
+                        gradientIsHover: true
+                    }
+                });
+                back.replaceWith(newBack);
+                back = newBack;
+            }
+        }
+    });
+    
+    return textHover;
+})();
 
 var thishitResult = new paper.HitResult();
 var thishitObject = null;
@@ -144,25 +184,42 @@ function onMouseMove(e) {
         thisendpoints[1].position,
         e.point
     );
-    if ((0 <= distance && distance <= COLOR_STOP_CREATE_DISTANCE)
-        && (!hitPath || hitPath.data.gradientStopOffset === undefined)) {
+    var [getPosition, angle] = findPositionAngle(
+        thisendpoints[0].position,
+        thisendpoints[1].position
+    );
+    var offsetHover = null;
+    if (thistarget && (0 <= distance && distance <= COLOR_STOP_CREATE_DISTANCE)
+        && (!hitPath || !hitPath.data.gradientIsGUI)) {
         // The cursor is above the endpoint line and not touching any of the color stops
         var { color, offset } = interpolateColor(e.point);
         thiscolorStopHover.data.gradientSetStopColor(color);
-        var [getPosition, angle] = findPositionAngle(
-            thisendpoints[0].position,
-            thisendpoints[1].position
-        );
+        
         thiscolorStopHover.position = getPosition(offset);
         thiscolorStopHover.rotation = angle;
         if (!thiscolorStopHover.parent) {
             thiscolorStopHover.addTo(paper.project);
         }
+        
+        offsetHover = offset;
     }
     else {
         if (thiscolorStopHover.parent) {
             thiscolorStopHover.remove();
         }
+        if (hitPath && hitPath.data.gradientStopOffset !== undefined) {
+            // The cursor is over a color stop
+            offsetHover = hitPath.data.gradientStopOffset;
+        }
+    }
+    
+    if (offsetHover !== null) {
+        thistextHover.data.gradientSetText(`${Math.round(offsetHover * 100)}%`);
+        thistextHover.position = getPosition(offsetHover, OFFSET_HOVER_DISTANCE);
+        if (!thistextHover.parent) thistextHover.addTo(paper.project);
+    }
+    else {
+        if (thistextHover.parent) thistextHover.remove();
     }
     
 }
@@ -226,10 +283,8 @@ function onMouseDown(e) {
 function onMouseDrag(e) {
     if (thiscolorStopHover.parent) thiscolorStopHover.remove();
     
-    if (!thishitObject) return null;
-    
     // If the GUI is dragged, move it
-    if (thishitObject.data.gradientIsGUI) {
+    if (thishitObject && thishitObject.data.gradientIsGUI) {
         thistargetNeedsUpdate = true;
         if (thishitObject.data.gradientStopOffset !== undefined) {
             // Calculate the stop offset
@@ -241,13 +296,21 @@ function onMouseDrag(e) {
             var getPosition = findPositionAngle(origin, destination)[0];
             thishitObject.position = getPosition(offset);
             thishitObject.data.gradientStopOffset = offset;
-        }
-        else if (thishitObject.data.gradientEndpoint) {
-            // Move the endpoint
-            thishitObject.position = e.point;
             
-            // Update the rest of the GUI
-            updateGUI();
+            // Update the offset indicator
+            thistextHover.data.gradientSetText(`${Math.round(offset * 100)}%`);
+            thistextHover.position = getPosition(offset, OFFSET_HOVER_DISTANCE);
+        }
+        else {
+            if (thistextHover.parent) thistextHover.remove();
+            
+            if (thishitObject && thishitObject.data.gradientEndpoint) {
+                // Move the endpoint
+                thishitObject.position = e.point;
+                
+                // Update the rest of the GUI
+                updateGUI();
+            }
         }
         updateTarget();
     }
@@ -546,9 +609,11 @@ function findPositionAngle(origin, destination) {
     var directionVector = destination.subtract(origin);
     var normal = new paper.Point(directionVector.y, -directionVector.x).normalize();
     
-    var getPosition = offset => {
+    var getPosition = (offset, distance) => {
         var position = origin.add(directionVector.multiply(offset));
-        position = position.add(normal.multiply(ENDPOINT_LINE_STOP_DISTANCE));
+        position = position.add(normal.multiply(
+            (distance === undefined) ? ENDPOINT_LINE_STOP_DISTANCE : distance
+        ));
         return position;
     };
     return [getPosition, normal.angle + 90];

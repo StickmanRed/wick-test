@@ -221,7 +221,6 @@ function onMouseMove(e) {
     else {
         if (thistextHover.parent) thistextHover.remove();
     }
-    
 }
 
 function onMouseDown(e) {
@@ -229,19 +228,13 @@ function onMouseDown(e) {
     thishitObject = thishitResult.item;
     thistargetNeedsUpdate = false;
     
-    if (!thishitObject) {
-        // Nothing was clicked, so deselect everything
-        destroyGUI();
-        return null;
-    }
-    
     // Selection priority:
     // Color stops
     // Endpoints
     // Endpoint rotation
     // Color stop creation
     // Target paths
-    if (thistarget && thishitObject.data.gradientIsGUI) {
+    if (thistarget && thishitObject && thishitObject.data.gradientIsGUI) {
         if (
             thishitObject.parent.data.gradientStopOffset !== undefined
             && !thishitObject.parent.data.gradientIsHover
@@ -272,11 +265,16 @@ function onMouseDown(e) {
             
             updateTarget();
         }
-        else {
+        else if (thishitObject) {
             // Clicked a path, select it
             thistarget = thishitObject;
             thisselectedIsStroke = (thishitResult.type === 'stroke');
             setupGUI();
+        }
+        else {
+            // Nothing was clicked, so deselect everything
+            destroyGUI();
+            return null;
         }
     }
 }

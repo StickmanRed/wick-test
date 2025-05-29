@@ -167,19 +167,13 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
         this.hitObject = this.hitResult.item;
         this.targetNeedsUpdate = false;
         
-        if (!this.hitObject) {
-            // Nothing was clicked, so deselect everything
-            this._destroyGUI();
-            return null;
-        }
-        
         // Selection priority:
         // Color stops
         // Endpoints
         // Endpoint rotation
         // Color stop creation
         // Target paths
-        if (this.target && this.hitObject.data.gradientIsGUI) {
+        if (this.target && this.hitObject && this.hitObject.data.gradientIsGUI) {
             if (
                 this.hitObject.data.gradientStopOffset !== undefined
                 && !this.hitObject.data.gradientIsHover
@@ -210,11 +204,16 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
                 
                 this._updateTarget();
             }
-            else {
+            else if (this.hitObject) {
                 // Clicked a path, select it
                 this.target = this.hitObject;
                 this.selectedIsStroke = (this.hitResult.type === 'stroke');
                 this._setupGUI();
+            }
+            else {
+                // Nothing was clicked, so deselect everything
+                this._destroyGUI();
+                return null;
             }
         }
     }

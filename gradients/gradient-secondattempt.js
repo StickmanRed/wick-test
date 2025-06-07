@@ -59,6 +59,8 @@ const OFFSET_HOVER_DISTANCE = 60;
  * this.colorStops: List containing paper.Group objects representing the color stops.
  * this.endpoints: List containing the start and end point paper.Path objects.
  * this.endpointLine: The paper.Path object of the line between the two endpoints.
+ * this.colorStopHover: The paper.Group object displaying the in-between color at the mouse.
+ * this.textHover: paper.Group object that displays text.
  * 
  * this.hitResult: paper.HitResult object for the latest onMouseDown event.
  * this.hitObject: this.hitResult.item

@@ -48,12 +48,19 @@ path3.strokeColor = {
 };
 path3.strokeWidth = 10;
 
-const ENDPOINT_RADIUS = 5;
+thiszoom = 0.5;
+//paper.view.zoom = thiszoom;
+
+const ENDPOINT_RADIUS = 5 / thiszoom;
 const OUTLINE_COLOR = '#0c8ce9';
-const COLOR_STOP_RECT_RADIUS = 12;
-const ENDPOINT_LINE_STOP_DISTANCE = 5;
+const COLOR_STOP_RECT_RADIUS = 12 / thiszoom;
+const COLOR_STOP_RECT_PADDING = 2 / thiszoom
+const COLOR_STOP_OUTLINE_WIDTH = 2 / thiszoom;
+const ENDPOINT_LINE_STOP_DISTANCE = 5 / thiszoom;
+const ENDPOINT_LINE_WIDTH = 1 / thiszoom;
 const COLOR_STOP_CREATE_DISTANCE = ENDPOINT_LINE_STOP_DISTANCE + 2.2 * COLOR_STOP_RECT_RADIUS;
-const OFFSET_HOVER_DISTANCE = 60;
+const OFFSET_HOVER_DISTANCE = 60 / thiszoom;
+const TEXT_HOVER_RECT_MARGIN = 4 / thiszoom;
 
 /* 
  * this.colorStops: List containing paper.Group objects representing the color stops.
@@ -123,7 +130,6 @@ var thistextHover = (() => {
         data: {
             gradientIsHover: true,
             gradientSetText: textContent => {
-                const TEXT_HOVER_RECT_MARGIN = 4;
                 text.content = textContent;
                 text.position = [0, 0];
                 var newBack = new paper.Path.Rectangle({
@@ -156,6 +162,8 @@ var thisisRadial = false;
 
 var thisselectedColorStop = null;
 var thistargetNeedsUpdate = false;
+
+//thisendpointLine.strokeWidth = ENDPOINT_LINE_WIDTH;
 
 function getTarget(e) {
     var result = project.hitTest(e.point, {
@@ -482,12 +490,13 @@ function createColorStop(data, hover) {
     if (!data) data = {};
     
     var radius = COLOR_STOP_RECT_RADIUS;
+    var padding = COLOR_STOP_RECT_PADDING;
     var height = radius/5;
     var borderColor = '#cccccc';
     var selectedBorderColor = OUTLINE_COLOR;
     var stopFillPath = new paper.Path.Rectangle({
         center: [0, -(radius+height)],
-        size: [2*radius-4, 2*radius-4],
+        size: [2*(radius-padding), 2*(radius-padding)],
         fillColor: 'red',
         strokeWidth: 0,
         data: {
@@ -501,7 +510,7 @@ function createColorStop(data, hover) {
                 center: [0, -(radius+height)],
                 size: [2*radius, 2*radius],
                 fillColor: '#ffffff',
-                strokeWidth: 2,
+                strokeWidth: COLOR_STOP_OUTLINE_WIDTH,
                 data: {
                     gradientIsGUI: true,
                     ...data
@@ -513,7 +522,7 @@ function createColorStop(data, hover) {
                 ],
                 closed: true,
                 fillColor: '#ffffff',
-                strokeWidth: 2,
+                strokeWidth: COLOR_STOP_OUTLINE_WIDTH,
                 data: {
                     gradientIsGUI: true,
                     ...data

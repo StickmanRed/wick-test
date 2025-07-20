@@ -48,23 +48,22 @@ path3.strokeColor = {
 };
 path3.strokeWidth = 10;
 
-// ENDPOINT_LINE_STOP_DISTANCE = 5;
-const baseELSD = 5;
-// OFFSET_HOVER_DISTANCE = 60;
-const baseOHD = 60;
-// ENDPOINT_LINE_WIDTH = 1;
-const baseELW = 1;
-
+// Constants
+const BASE_ELSD = 5;
+const BASE_OHD = 60;
+const BASE_ELW = 1;
 const ENDPOINT_RADIUS = 5;
 const OUTLINE_COLOR = '#0c8ce9';
 const COLOR_STOP_RECT_RADIUS = 12;
 const COLOR_STOP_RECT_PADDING = 2;
 const COLOR_STOP_OUTLINE_WIDTH = 2;
-var ENDPOINT_LINE_STOP_DISTANCE = baseELSD;
-var ENDPOINT_LINE_WIDTH = baseELW;
-var COLOR_STOP_CREATE_DISTANCE = ENDPOINT_LINE_STOP_DISTANCE + 2.2 * COLOR_STOP_RECT_RADIUS;
-var OFFSET_HOVER_DISTANCE = baseOHD;
 const TEXT_HOVER_RECT_MARGIN = 4;
+
+// Constants affected by scaling
+var endpointLineStopDistance = BASE_ELSD;
+var endpointLineWidth = BASE_ELW;
+var colorStopCreateDistance = endpointLineStopDistance + 2.2 * COLOR_STOP_RECT_RADIUS;
+var offsetHoverDistance = BASE_OHD;
 
 var thiszoom = 1;
 
@@ -205,7 +204,7 @@ function onMouseMove(e) {
         thisendpoints[1].position
     );
     var offsetHover = null;
-    if (thistarget && (0 <= distance && distance <= COLOR_STOP_CREATE_DISTANCE)
+    if (thistarget && (0 <= distance && distance <= colorStopCreateDistance)
         && (!hitPath || !hitPath.data.gradientIsGUI)) {
         // The cursor is above the endpoint line and not touching any of the color stops
         var { color, offset } = interpolateColor(e.point);
@@ -231,7 +230,7 @@ function onMouseMove(e) {
     
     if (offsetHover !== null) {
         thistextHover.data.gradientSetText(`${Math.round(offsetHover * 100)}%`);
-        thistextHover.position = getPosition(offsetHover, OFFSET_HOVER_DISTANCE);
+        thistextHover.position = getPosition(offsetHover, offsetHoverDistance);
         if (!thistextHover.parent) thistextHover.addTo(paper.project);
     }
     else {
@@ -268,7 +267,7 @@ function onMouseDown(e) {
             thisendpoints[1].position,
             e.point
         );
-        if (thistarget && 0 <= distance && distance <= COLOR_STOP_CREATE_DISTANCE) {
+        if (thistarget && 0 <= distance && distance <= colorStopCreateDistance) {
             // Clicked above the gradient line, create a new stop
             var {stop, index} = interpolateColorStop(e.point);
             thiscolorStops.splice(index, 0, stop);
@@ -313,7 +312,7 @@ function onMouseDrag(e) {
             
             // Update the offset indicator
             thistextHover.data.gradientSetText(`${Math.round(offset * 100)}%`);
-            thistextHover.position = getPosition(offset, OFFSET_HOVER_DISTANCE);
+            thistextHover.position = getPosition(offset, offsetHoverDistance);
         }
         else {
             if (thistextHover.parent) thistextHover.remove();
@@ -462,10 +461,10 @@ function updateZoom(zoom) {
     console.log(scale)
     
     // Scale necessary metrics
-    ENDPOINT_LINE_STOP_DISTANCE = baseELSD / thiszoom;
-    OFFSET_HOVER_DISTANCE = baseOHD / thiszoom;
-    ENDPOINT_LINE_WIDTH = baseELW / thiszoom;
-    COLOR_STOP_CREATE_DISTANCE = ENDPOINT_LINE_STOP_DISTANCE + 2.2 * COLOR_STOP_RECT_RADIUS / thiszoom;
+    endpointLineStopDistance = BASE_ELSD / thiszoom;
+    offsetHoverDistance = BASE_OHD / thiszoom;
+    endpointLineWidth = BASE_ELW / thiszoom;
+    colorStopCreateDistance = endpointLineStopDistance + 2.2 * COLOR_STOP_RECT_RADIUS / thiszoom;
 
     // Color stops
     var origin = thisendpoints[0].position;
@@ -482,7 +481,7 @@ function updateZoom(zoom) {
     thisendpoints[0].scaling = scale;
     thisendpoints[1].scaling = scale;
     // Endpoint line
-    thisendpointLine.strokeWidth = ENDPOINT_LINE_WIDTH;
+    thisendpointLine.strokeWidth = endpointLineWidth;
     
     // Color stop hover
     thiscolorStopHover.scaling = scale;
@@ -672,7 +671,7 @@ function findPositionAngle(origin, destination) {
     var getPosition = (offset, distance) => {
         var position = origin.add(directionVector.multiply(offset));
         position = position.add(normal.multiply(
-            (distance === undefined) ? ENDPOINT_LINE_STOP_DISTANCE : distance
+            (distance === undefined) ? endpointLineStopDistance : distance
         ));
         return position;
     };

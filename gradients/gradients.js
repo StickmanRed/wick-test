@@ -8,12 +8,26 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
 
         this.SELECTION_TOLERANCE = 3;
         this.CURSOR_DEFAULT = 'cursors/default.png';
+
+        // Constants
+        this.BASE_ELSD = 5;
+        this.BASE_OHD = 60;
+        this.BASE_ELW = 1;
+        
         this.ENDPOINT_RADIUS = 5;
         this.OUTLINE_COLOR = '#0c8ce9';
         this.COLOR_STOP_RECT_RADIUS = 12;
-        this.ENDPOINT_LINE_STOP_DISTANCE = 5;
-        this.COLOR_STOP_CREATE_DISTANCE = this.ENDPOINT_LINE_STOP_DISTANCE + 2.2 * this.COLOR_STOP_RECT_RADIUS;
-        this.OFFSET_HOVER_DISTANCE = 60;
+        this.COLOR_STOP_RECT_PADDING = 2;
+        this.COLOR_STOP_OUTLINE_WIDTH = 2;
+        this.TEXT_HOVER_RECT_MARGIN = 4;
+
+        // Constants affected by scaling
+        this.endpointLineStopDistance = this.BASE_ELSD;
+        this.endpointLineWidth = this.BASE_ELW;
+        this.colorStopCreateDistance = this.endpointLineStopDistance + 2.2 * this.COLOR_STOP_RECT_RADIUS;
+        this.offsetHoverDistance = this.BASE_OHD;
+
+        this.zoom = 1;
 
         this.colorStops = [];
         this.endpoints = [
@@ -22,6 +36,7 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
                 radius: this.ENDPOINT_RADIUS,
                 fillColor: this.OUTLINE_COLOR,
                 insert: false,
+                applyMatrix: false,
                 data: {
                     gradientIsGUI: true,
                     gradientEndpoint: 'start'
@@ -32,6 +47,7 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
                 radius: this.ENDPOINT_RADIUS,
                 fillColor: this.OUTLINE_COLOR,
                 insert: false,
+                applyMatrix: false,
                 data: {
                     gradientIsGUI: true,
                     gradientEndpoint: 'end'
@@ -65,14 +81,13 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
                 data: {
                     gradientIsHover: true,
                     gradientSetText: textContent => {
-                        const TEXT_HOVER_RECT_MARGIN = 4;
                         text.content = textContent;
                         text.position = [0, 0];
                         var newBack = new this.paper.Path.Rectangle({
                             center: [0, 0],
                             size: [
-                                text.bounds.width + 2 * TEXT_HOVER_RECT_MARGIN,
-                                text.bounds.height + 2 * TEXT_HOVER_RECT_MARGIN
+                                text.bounds.width + 2 * this.TEXT_HOVER_RECT_MARGIN,
+                                text.bounds.height + 2 * this.TEXT_HOVER_RECT_MARGIN
                             ],
                             radius: 2,
                             fillColor: this.OUTLINE_COLOR,
@@ -128,7 +143,7 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
             this.endpoints[1].position
         );
         var offsetHover = null;
-        if (this.target && (0 <= distance && distance <= this.COLOR_STOP_CREATE_DISTANCE)
+        if (this.target && (0 <= distance && distance <= this.colorStopCreateDistance)
             && (!hitPath || !hitPath.data.gradientIsGUI)) {
             // The cursor is above the endpoint line and not touching any of the color stops
             var { color, offset } = this._interpolateColor(e.point);
@@ -154,7 +169,7 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
         
         if (offsetHover !== null) {
             this.textHover.data.gradientSetText(`${Math.round(offsetHover * 100)}%`);
-            this.textHover.position = getPosition(offsetHover, this.OFFSET_HOVER_DISTANCE);
+            this.textHover.position = getPosition(offsetHover, this.offsetHoverDistance);
             if (!this.textHover.parent) this.textHover.addTo(this.paper.project);
         }
         else {
@@ -191,7 +206,7 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
                 this.endpoints[1].position,
                 e.point
             );
-            if (this.target && 0 <= distance && distance <= this.COLOR_STOP_CREATE_DISTANCE) {
+            if (this.target && 0 <= distance && distance <= this.colorStopCreateDistance) {
                 // Clicked above the gradient line, create a new stop
                 var {stop, index} = this._interpolateColorStop(e.point);
                 this.colorStops.splice(index, 0, stop);
@@ -237,7 +252,7 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
                 
                 // Update the offset indicator
                 this.textHover.data.gradientSetText(`${Math.round(offset * 100)}%`);
-                this.textHover.position = getPosition(offset, this.OFFSET_HOVER_DISTANCE);
+                this.textHover.position = getPosition(offset, this.offsetHoverDistance);
             }
             else {
                 if (this.textHover.parent) this.textHover.remove();
@@ -405,6 +420,43 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
         });
     }
 
+    _updateZoom (zoom) {
+        this.zoom = zoom;
+        var scale = 1 / zoom;
+        
+        // Scale necessary metrics
+        this.endpointLineStopDistance = this.BASE_ELSD / zoom;
+        this.offsetHoverDistance = this.BASE_OHD / zoom;
+        this.endpointLineWidth = this.BASE_ELW / zoom;
+        this.colorStopCreateDistance = this.endpointLineStopDistance + 2.2 * this.COLOR_STOP_RECT_RADIUS / zoom;
+    
+        // Color stops
+        var origin = this.endpoints[0].position;
+        var destination = this.endpoints[1].position;
+        this.colorStops.forEach(colorPath => colorPath.scaling = scale);
+        var [getPosition, angle] = this._findPositionAngle(origin, destination);
+        this.colorStops.forEach(colorPath => {
+            var position = getPosition(colorPath.data.gradientStopOffset);
+            colorPath.position = position;
+            colorPath.rotation = angle;
+        });
+        
+        // Endpoints
+        this.endpoints[0].scaling = scale;
+        this.endpoints[1].scaling = scale;
+        // Endpoint line
+        this.endpointLine.strokeWidth = this.endpointLineWidth;
+        
+        // Color stop hover
+        this.colorStopHover.scaling = scale;
+        var position = getPosition(this.colorStopHover.data.gradientStopOffset);
+        this.colorStopHover.position = position;
+        this.colorStopHover.rotation = angle;
+        
+        // Text hover pop-up
+        this.textHover.scaling = scale;
+    }
+
     _updateSelectedColorStops () {
         this.colorStops.forEach(colorStop => {
             colorStop.data.gradientSetSelected(colorStop === this.selectedColorStop);
@@ -454,12 +506,13 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
         if (!data) data = {};
         
         var radius = this.COLOR_STOP_RECT_RADIUS;
+        var padding = this.COLOR_STOP_RECT_PADDING;
         var height = radius/5;
         var borderColor = '#cccccc';
         var selectedBorderColor = this.OUTLINE_COLOR;
         var stopFillPath = new this.paper.Path.Rectangle({
             center: [0, -(radius+height)],
-            size: [2*radius-4, 2*radius-4],
+            size: [2*(radius-padding), 2*(radius-padding)],
             fillColor: 'red',
             strokeWidth: 0,
             data: {
@@ -473,7 +526,7 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
                     center: [0, -(radius+height)],
                     size: [2*radius, 2*radius],
                     fillColor: '#ffffff',
-                    strokeWidth: 2,
+                    strokeWidth: this.COLOR_STOP_OUTLINE_WIDTH,
                     data: {
                         gradientIsGUI: true,
                         ...data
@@ -485,7 +538,7 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
                     ],
                     closed: true,
                     fillColor: '#ffffff',
-                    strokeWidth: 2,
+                    strokeWidth: this.COLOR_STOP_OUTLINE_WIDTH,
                     data: {
                         gradientIsGUI: true,
                         ...data
@@ -495,6 +548,7 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
             ],
             strokeColor: borderColor,
             pivot: [0, 0],
+            scaling: 1 / this.zoom,
             applyMatrix: false,
             data: {
                 gradientIsGUI: true,
@@ -587,7 +641,7 @@ Wick.Tools.GradientTool = class extends Wick.Tool {
         var getPosition = (offset, distance) => {
             var position = origin.add(directionVector.multiply(offset));
             position = position.add(normal.multiply(
-                (distance === undefined) ? this.ENDPOINT_LINE_STOP_DISTANCE : distance
+                (distance === undefined) ? this.endpointLineStopDistance : distance
             ));
             return position;
         };

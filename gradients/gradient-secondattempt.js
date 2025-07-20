@@ -48,19 +48,25 @@ path3.strokeColor = {
 };
 path3.strokeWidth = 10;
 
-thiszoom = 0.5;
-//paper.view.zoom = thiszoom;
+// ENDPOINT_LINE_STOP_DISTANCE = 5;
+const baseELSD = 5;
+// OFFSET_HOVER_DISTANCE = 60;
+const baseOHD = 60;
+// ENDPOINT_LINE_WIDTH = 1;
+const baseELW = 1;
 
-const ENDPOINT_RADIUS = 5 / thiszoom;
+const ENDPOINT_RADIUS = 5;
 const OUTLINE_COLOR = '#0c8ce9';
-const COLOR_STOP_RECT_RADIUS = 12 / thiszoom;
-const COLOR_STOP_RECT_PADDING = 2 / thiszoom
-const COLOR_STOP_OUTLINE_WIDTH = 2 / thiszoom;
-const ENDPOINT_LINE_STOP_DISTANCE = 5 / thiszoom;
-const ENDPOINT_LINE_WIDTH = 1 / thiszoom;
-const COLOR_STOP_CREATE_DISTANCE = ENDPOINT_LINE_STOP_DISTANCE + 2.2 * COLOR_STOP_RECT_RADIUS;
-const OFFSET_HOVER_DISTANCE = 60 / thiszoom;
-const TEXT_HOVER_RECT_MARGIN = 4 / thiszoom;
+const COLOR_STOP_RECT_RADIUS = 12;
+const COLOR_STOP_RECT_PADDING = 2;
+const COLOR_STOP_OUTLINE_WIDTH = 2;
+var ENDPOINT_LINE_STOP_DISTANCE = baseELSD;
+var ENDPOINT_LINE_WIDTH = baseELW;
+var COLOR_STOP_CREATE_DISTANCE = ENDPOINT_LINE_STOP_DISTANCE + 2.2 * COLOR_STOP_RECT_RADIUS;
+var OFFSET_HOVER_DISTANCE = baseOHD;
+const TEXT_HOVER_RECT_MARGIN = 4;
+
+var thiszoom = 1;
 
 /* 
  * this.colorStops: List containing paper.Group objects representing the color stops.
@@ -87,6 +93,7 @@ var thisendpoints = [
         radius: ENDPOINT_RADIUS,
         fillColor: OUTLINE_COLOR,
         insert: false,
+        applyMatrix: false,
         data: {
             gradientIsGUI: true,
             gradientEndpoint: 'start'
@@ -97,6 +104,7 @@ var thisendpoints = [
         radius: ENDPOINT_RADIUS,
         fillColor: OUTLINE_COLOR,
         insert: false,
+        applyMatrix: false,
         data: {
             gradientIsGUI: true,
             gradientEndpoint: 'end'
@@ -162,8 +170,6 @@ var thisisRadial = false;
 
 var thisselectedColorStop = null;
 var thistargetNeedsUpdate = false;
-
-//thisendpointLine.strokeWidth = ENDPOINT_LINE_WIDTH;
 
 function getTarget(e) {
     var result = project.hitTest(e.point, {
@@ -360,6 +366,12 @@ function onKeyDown(e) {
             updateSelectedColorStops();
         }
     }
+    else if (e.key === 'up') {
+        updateZoom(thiszoom + 0.1);
+    }
+    else if (e.key === 'down') {
+        updateZoom(thiszoom - 0.1);
+    }
 }
 function onKeyUp(e) {
     lastKeyPressed = null;
@@ -442,6 +454,44 @@ function updateGUI() {
         colorPath.position = position;
         colorPath.rotation = angle;
     });
+}
+function updateZoom(zoom) {
+    thiszoom = zoom;
+    paper.view.zoom = thiszoom;
+    var scale = 1 / thiszoom;
+    console.log(scale)
+    
+    // Scale necessary metrics
+    ENDPOINT_LINE_STOP_DISTANCE = baseELSD / thiszoom;
+    OFFSET_HOVER_DISTANCE = baseOHD / thiszoom;
+    ENDPOINT_LINE_WIDTH = baseELW / thiszoom;
+    COLOR_STOP_CREATE_DISTANCE = ENDPOINT_LINE_STOP_DISTANCE + 2.2 * COLOR_STOP_RECT_RADIUS / thiszoom;
+
+    // Color stops
+    var origin = thisendpoints[0].position;
+    var destination = thisendpoints[1].position;
+    thiscolorStops.forEach(colorPath => colorPath.scaling = scale);
+    var [getPosition, angle] = findPositionAngle(origin, destination);
+    thiscolorStops.forEach(colorPath => {
+        var position = getPosition(colorPath.data.gradientStopOffset);
+        colorPath.position = position;
+        colorPath.rotation = angle;
+    });
+    
+    // Endpoints
+    thisendpoints[0].scaling = scale;
+    thisendpoints[1].scaling = scale;
+    // Endpoint line
+    thisendpointLine.strokeWidth = ENDPOINT_LINE_WIDTH;
+    
+    // Color stop hover
+    thiscolorStopHover.scaling = scale;
+    var position = getPosition(thiscolorStopHover.data.gradientStopOffset);
+    thiscolorStopHover.position = position;
+    thiscolorStopHover.rotation = angle;
+    
+    // Text hover pop-up
+    thistextHover.scaling = scale;
 }
 function updateSelectedColorStops() {
     thiscolorStops.forEach(colorStop => {
@@ -532,6 +582,7 @@ function createColorStop(data, hover) {
         ],
         strokeColor: borderColor,
         pivot: [0, 0],
+        scaling: 1 / thiszoom,
         applyMatrix: false,
         data: {
             gradientIsGUI: true,

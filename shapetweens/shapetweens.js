@@ -5,7 +5,12 @@
  */
 function divideInto(path, slices) {
     for (let i = 1; i < slices; i++) {
-        path.divideAt(path.length * i / slices);
+        var offset = path.length * i / slices;
+        var location = path.getLocationAt(offset);
+        if (location.segment.location.offset === offset) {
+            offset = (location._segment2.location.offset + location._segment1.location.offset) / 2;
+        }
+        path.divideAt(offset);
     }
 }
 /** Helper function to ensure two paths have the same amount of segments.

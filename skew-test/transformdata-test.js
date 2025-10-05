@@ -39,7 +39,11 @@ z.data.transformData = Object.assign({}, z.data.transformData);
 z.fillColor = null;
 z.strokeColor = 'grey'; z.strokeWidth = 2; z.strokeScaling = false;
 z.data.transformData.skew = new Point(1, 0.5);
-update(z);
+//a.scale(2,1.3).skew(0.2,0.8)
+p = z.position;
+//z.translate(-p).transform(new Matrix().skew(0.2,0.8).scale(2,1.3)).translate(p)
+//console.log(new Matrix().skew(0.2,0.8,new Point(10,23)).scale(1.3,2,new Point(10,23)).inverted().transform(3,1))
+//console.log(new Matrix().skew(0.2,0.8).scale(1.3,2).inverted().transform(new Point(3,1).subtract(10,23)).add(10,23))
 b = new Path.Circle({
     center: a.bounds.topCenter - new Point(2*a.bounds.height, 0),
     radius: 3,
@@ -75,20 +79,20 @@ function onMouseDown(e) {
 }
 function onMouseDrag(e) {
     var delta = e.point - down;
-    //scale = new Point(1, 1 + -2 * delta.y / (height));
-    skew = new Point(-2 * delta.x / height, -2 * delta.y / width);
+    scale = new Point(1 /*+ -2 * delta.x / width*/, 1 + -2 * delta.y / height);
+    skew = new Point(-2 * delta.x / height, 0/*-2 * delta.y / width*/);
+    skew = (skew*scale + originalSkew) / new Point(scale.y, scale.x)
     
     t(a, matrix.inverted(), a.data.transformData.position);
     matrix.reset();
-    matrix.rotate(originalRotation).shear((skew.x+originalSkew.x) / (scale.y/scale.x), (skew.y+originalSkew.y) / (scale.x/scale.y)).scale(scale);
+    matrix.rotate(originalRotation).shear(skew).scale(scale);
     t(a, matrix, a.data.transformData.position);
 }
 function onMouseUp(e) {
     a.data.transformData.position = a.position.clone();
     a.data.transformData.scale = a.data.transformData.scale * scale;
-    a.data.transformData.skew.x = (skew.x+originalSkew.x) / (scale.y/scale.x);
-    a.data.transformData.skew.y = (skew.y+originalSkew.y) / (scale.x/scale.y);
+    a.data.transformData.skew = skew;
     update(a)
-    //console.log(scale, skew)
+    console.log(scale, skew)
     //console.log(a.data.transformData.scale.y, a.data.transformData.skew.x);
 }
